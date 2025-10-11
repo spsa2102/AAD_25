@@ -81,3 +81,6 @@ deti_simd_search_avx: aad_deti_simd_search.c aad_sha1_cpu.h aad_sha1.h aad_data_
 
 deti_simd_search_neon: aad_deti_simd_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -D_GNU_SOURCE -std=gnu11 -mfpu=neon -march=native -Wall -Wshadow -Werror -O3 $< -o deti_simd_search_neon
+
+deti_cuda_search: aad_deti_cuda_search.c aad_sha1_cuda_kernel.cu aad_sha1.h aad_data_types.h aad_utilities.h aad_cuda_utilities.h aad_vault.h makefile
+	cc -march=native -Wall -Wshadow -Werror -O3 aad_deti_cuda_search.c -o deti_cuda_search -lcuda
