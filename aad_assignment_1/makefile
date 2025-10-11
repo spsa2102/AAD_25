@@ -64,7 +64,7 @@ sha1_cuda_kernel.cubin:			aad_sha1_cuda_kernel.cu aad_sha1.h makefile
 	nvcc -arch=$(CUDA_ARCH) --compiler-options -O2,-Wall -I$(CUDA_DIR)/include --cubin $< -o $@
 
 
-# DETI miners
+# build
 
 deti_cpu_search: aad_deti_cpu_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -march=native -Wall -Wshadow -Werror -O3 $< -o $@
