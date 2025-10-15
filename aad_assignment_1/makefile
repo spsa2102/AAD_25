@@ -30,9 +30,10 @@ OPENCL_DIR = $(CUDA_DIR)
 #   RTX A2000 Ada --------- sm_86
 #   RTX A6000 Ada --------- sm_86
 #   RTX 4070 -------------- sm_89
+#   RTX 3060 Laptop ------- sm_86
 #
 
-CUDA_ARCH = sm_75
+CUDA_ARCH = sm_86
 
 
 #
@@ -84,3 +85,15 @@ deti_simd_search_neon: aad_deti_simd_search.c aad_sha1_cpu.h aad_sha1.h aad_data
 
 deti_cuda_search: aad_deti_cuda_search.c aad_sha1_cuda_kernel.cu aad_sha1.h aad_data_types.h aad_utilities.h aad_cuda_utilities.h aad_vault.h makefile
 	cc -march=native -Wall -Wshadow -Werror -O3 aad_deti_cuda_search.c -o deti_cuda_search -lcuda
+
+deti_simd_omp_search: aad_deti_simd_omp_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
+	cc -D_GNU_SOURCE -std=gnu11 -march=native -Wall -Wshadow -Werror -O3 -fopenmp $< -o $@
+
+deti_server: aad_deti_server.c aad_distributed.h aad_vault.h aad_data_types.h aad_utilities.h makefile
+	cc -std=gnu11 -Wall -Wshadow -Werror -O3 $< -o $@ -lpthread
+
+deti_client: aad_deti_client.c aad_distributed.h aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h makefile
+	cc -D_GNU_SOURCE -std=gnu11 -march=native -Wall -Wshadow -Werror -O3 -fopenmp $< -o $@ -lpthread
+
+deti_client_cuda: aad_deti_client_cuda.c aad_distributed.h aad_sha1_cpu.h aad_sha1.h aad_cuda_utilities.h aad_data_types.h aad_utilities.h makefile
+	cc -march=native -Wall -Wshadow -Werror -O3 $< -o $@ -lcuda -lpthread
