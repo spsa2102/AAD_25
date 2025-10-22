@@ -1,7 +1,3 @@
-//
-// CPU-only DETI coin search (no SIMD)
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +40,9 @@ int main(int argc,char **argv)
 
   // seed random number generator
   srand((unsigned int)time(NULL));
+  
+  // initialize nonce with random value to explore different search space on each run
+  nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
 
   // initialize time measurement
   time_measurement();
