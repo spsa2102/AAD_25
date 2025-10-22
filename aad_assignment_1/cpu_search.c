@@ -42,6 +42,9 @@ int main(int argc,char **argv)
   // setup signal handler for Ctrl+C to request a graceful stop
   (void)signal(SIGINT,handle_sigint);
 
+  // seed random number generator
+  srand((unsigned int)time(NULL));
+
   // initialize time measurement
   time_measurement();
 
@@ -56,22 +59,20 @@ int main(int argc,char **argv)
   {
     if(n_trials != 0ULL && iter >= n_trials) break;
     if(stop_requested) break;
-    // generate a small printable representation of the nonce and fill bytes 12..53
-    char buf[64];
-    int len = snprintf(buf,sizeof(buf),"%llu",(unsigned long long)nonce);
-    if(len <= 0) len = 1, buf[0] = '0';
-    // fill the 42 variable bytes (indices 12..53 inclusive)
+    // fill the 42 variable bytes using sequential nonce with printable ASCII
+    unsigned long long temp_nonce = nonce;
     for(int j = 0; j < 42; j++)
     {
-      char ch = buf[j % len];
-      if(ch == '\n') ch = '?';
-      coin.c[(12 + j) ^ 3] = (u08_t)ch;
+      // Use base-95 encoding (printable ASCII 32-126)
+      u08_t byte_val = (u08_t)(32 + (temp_nonce % 95));
+      coin.c[(12 + j) ^ 3] = byte_val;
+      temp_nonce /= 95;
     }
 
     // compute SHA1 using the reference implementation
     sha1(&coin.i[0],hash);
 
-    // test DETI coin signature (first word) --- same test used in save_coin()
+    // test DETI coin
     if(hash[0] == 0xAAD20250u)
     {
       // count leading zero bits in words hash[1..4]

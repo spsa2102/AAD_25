@@ -67,7 +67,7 @@ sha1_cuda_kernel.cubin:			aad_sha1_cuda_kernel.cu aad_sha1.h makefile
 
 # build
 
-deti_cpu_search: aad_deti_cpu_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
+cpu_search: cpu_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -march=native -Wall -Wshadow -Werror -O3 $< -o $@
 
 deti_simd_search: aad_deti_simd_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
