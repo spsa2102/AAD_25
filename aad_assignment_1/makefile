@@ -73,6 +73,9 @@ cpu_search: cpu_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilitie
 avx_search: avx_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -mavx2 -march=native -Wall -Wshadow -Werror -O3 $< -o $@
 
+avx2_search: avx2_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
+	cc -mavx2 -march=native -Wall -Wshadow -Werror -O3 $< -o $@
+
 # ISA specific SIMD builds (force the ISA via flags)
 deti_simd_search_avx2: aad_deti_simd_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -D_GNU_SOURCE -std=gnu11 -mavx2 -march=native -Wall -Wshadow -Werror -O3 $< -o deti_simd_search_avx2
