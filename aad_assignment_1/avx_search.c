@@ -1,7 +1,3 @@
-//
-// SIMD DETI coin search using AVX
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,12 +35,16 @@ int main(int argc,char **argv)
   union { u08_t c[14 * 4]; u32_t i[14]; } data[N_LANES];
   u32_t interleaved_data[14][N_LANES] __attribute__((aligned(64)));
   u32_t interleaved_hash[5][N_LANES] __attribute__((aligned(64)));
+  unsigned long long base_nonce = 0ULL;
   unsigned long long batches_done = 0ULL;
   unsigned long long report_interval = 10000000ULL;
   double total_elapsed_time = 0.0;
 
   // seed random number generator
   srand((unsigned int)time(NULL));
+  
+  // initialize base_nonce with random value to explore different search space on each run
+  base_nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
 
   // initialize time measurement
   time_measurement();
@@ -63,11 +63,15 @@ int main(int argc,char **argv)
       data[lane].c[54 ^ 3] = (u08_t)'\n';
       data[lane].c[55 ^ 3] = (u08_t)0x80;
 
-      // fill variable bytes 12..53 with random printable ASCII characters
+      // fill variable bytes 12..53 using sequential nonce with printable ASCII
+      unsigned long long nonce = base_nonce + (unsigned long long)lane;
+      unsigned long long temp_nonce = nonce;
       for(int j = 0; j < 42; ++j)
       {
-        u08_t byte_val = (u08_t)(32 + (rand() % 95));
+        // Use base-95 encoding (printable ASCII 32-126)
+        u08_t byte_val = (u08_t)(32 + (temp_nonce % 95));
         data[lane].c[(12 + j) ^ 3] = byte_val;
+        temp_nonce /= 95;
       }
     }
 
@@ -95,8 +99,8 @@ int main(int argc,char **argv)
           if(((hash[1u + zeros / 32u] >> (31u - zeros % 32u)) & 1u) != 0u)
             break;
         if(zeros > 99u) zeros = 99u;
-        unsigned long long batch_iter = batches_done * N_LANES + (unsigned long long)lane;
-        printf("Found DETI coin (SIMD): batch_iter=%llu zeros=%u\n",batch_iter,zeros);
+        unsigned long long found_nonce = base_nonce + (unsigned long long)lane;
+        printf("Found DETI coin (SIMD): nonce=%llu zeros=%u\n",found_nonce,zeros);
         // print ASCII-safe coin
         printf("coin: \"");
         for(int b = 0; b < 55; ++b)
@@ -116,6 +120,7 @@ int main(int argc,char **argv)
     }
 
     // advance
+    base_nonce += (unsigned long long)N_LANES;
     ++batches_done;
 
     if((batches_done % report_interval) == 0ULL)
@@ -124,7 +129,6 @@ int main(int argc,char **argv)
       double delta_time = wall_time_delta();
       total_elapsed_time += delta_time;
       
-      unsigned long long total_iterations = batches_done * N_LANES;
       double batches_per_second = (double)report_interval / delta_time;
       double iterations_per_second = (double)(report_interval * N_LANES) / delta_time;
       
@@ -134,8 +138,8 @@ int main(int argc,char **argv)
         iterations_per_second = 0.0;
       }
       
-      fprintf(stderr,"batches=%llu iterations=%llu time=%.1f batch_per_sec=%.0f iter_per_sec=%.0f\n",
-              batches_done, total_iterations, total_elapsed_time, batches_per_second, iterations_per_second);
+      fprintf(stderr,"batches=%llu nonce=%llu time=%.1f batch_per_sec=%.0f iter_per_sec=%.0f\n",
+              batches_done, base_nonce, total_elapsed_time, batches_per_second, iterations_per_second);
     }
   }
 
