@@ -17,3 +17,6 @@ V01:DETI coin 2 LD#p_]eXt*
 V00:DETI coin 2 kn[Dk]eXt*                                
 V00:DETI coin 2 ,2Wk1^eXt*                                
 V01:DETI coin 2 K0I9R^eXt*                                
+V00:DETI coin 2 OdP8-r^-&"                                
+V02:DETI coin 2 eNVUZqw&a0                                
+V02:DETI coin 2 <(1`}8Y8T"                                
