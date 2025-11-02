@@ -11,3 +11,9 @@ V01:DETI coin 2 yiI#G
 V00:DETI coin 2 ?StmW                                     
 V00:DETI coin 2 nReTs                                     
 V00:DETI coin 2 %2A]#\W=yUS1~frRfeY.mi}_Z*rjvI7{XXV[3/x-aJ
+V00:DETI coin 2 251411332825141133282514113328251411332825
+V00:DETI coin 2 SZ&M6]eXt*                                
+V01:DETI coin 2 LD#p_]eXt*                                
+V00:DETI coin 2 kn[Dk]eXt*                                
+V00:DETI coin 2 ,2Wk1^eXt*                                
+V01:DETI coin 2 K0I9R^eXt*                                

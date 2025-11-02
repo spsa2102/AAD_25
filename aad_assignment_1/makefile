@@ -76,6 +76,9 @@ avx_search: avx_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilitie
 avx2_search: avx2_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -mavx2 -march=native -Wall -Wshadow -Werror -O3 $< -o $@
 
+cuda_search: search_cuda.cu vault_wrapper.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
+	nvcc -arch=$(CUDA_ARCH) --compiler-options -Wall,-O3 -I. search_cuda.cu vault_wrapper.c -o $@
+
 # ISA specific SIMD builds (force the ISA via flags)
 deti_simd_search_avx2: aad_deti_simd_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -D_GNU_SOURCE -std=gnu11 -mavx2 -march=native -Wall -Wshadow -Werror -O3 $< -o deti_simd_search_avx2
@@ -86,8 +89,6 @@ deti_simd_search_avx: aad_deti_simd_search.c aad_sha1_cpu.h aad_sha1.h aad_data_
 deti_simd_search_neon: aad_deti_simd_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -D_GNU_SOURCE -std=gnu11 -mfpu=neon -march=native -Wall -Wshadow -Werror -O3 $< -o deti_simd_search_neon
 
-deti_cuda_search: aad_deti_cuda_search.c aad_sha1_cuda_kernel.cu aad_sha1.h aad_data_types.h aad_utilities.h aad_cuda_utilities.h aad_vault.h makefile
-	cc -march=native -Wall -Wshadow -Werror -O3 aad_deti_cuda_search.c -o deti_cuda_search -lcuda
 
 deti_simd_omp_search: aad_deti_simd_omp_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -D_GNU_SOURCE -std=gnu11 -march=native -Wall -Wshadow -Werror -O3 -fopenmp $< -o $@
