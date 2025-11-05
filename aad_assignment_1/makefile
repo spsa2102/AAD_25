@@ -44,6 +44,9 @@ clean:
 	rm -f sha1_tests
 	rm -f sha1_cuda_test sha1_cuda_kernel.cubin
 	rm -f a.out
+	rm -f cpu_search avx_search avx2_search cuda_search simd_openmp_search
+	# remove any other build artifacts
+	rm -f *.o *.cubin *.exe
 
 
 #
