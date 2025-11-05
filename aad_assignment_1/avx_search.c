@@ -51,6 +51,10 @@ int main(int argc,char **argv)
 
   // prepare fixed bytes;
   const char *hdr = "DETI coin 2 ";
+  // precompute mapping from random byte -> printable ASCII [32..126]
+  u08_t ascii95_lut[256];
+  for(int i = 0; i < 256; ++i)
+    ascii95_lut[i] = (u08_t)((i % 95) + 32);
 
   while((n_batches == 0ULL || batches_done < n_batches) && !stop_requested)
   {
@@ -75,10 +79,10 @@ int main(int argc,char **argv)
         data[lane].c[(12 + j) ^ 3] = byte_val;
         temp_nonce /= 95;
       }
-      // remaining bytes from random_byte()
+      // remaining bytes from random_byte() using LUT (avoids per-iteration modulo)
       for(int j = 10; j < 42; ++j)
       {
-        data[lane].c[(12 + j) ^ 3] = random_byte()%95+32;
+        data[lane].c[(12 + j) ^ 3] = ascii95_lut[random_byte()];
       }
     }
 

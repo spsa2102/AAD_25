@@ -62,6 +62,11 @@ int main(int argc, char **argv)
     u32_t interleaved_data[14][N_LANES] __attribute__((aligned(64)));
     u32_t interleaved_hash[5][N_LANES] __attribute__((aligned(64)));
 
+    // Per-thread LUT to map random bytes to printable ASCII [32..126]
+    u08_t ascii95_lut[256];
+    for(int i = 0; i < 256; ++i)
+      ascii95_lut[i] = (u08_t)((i % 95) + 32);
+
     // Initialize a different base nonce per thread
     unsigned long long thread_seed = (unsigned long long)time(NULL) ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(tid + 1));
     unsigned long long base_nonce = ((thread_seed & 0xFFFFFFFFULL) << 32) | ((thread_seed >> 32) & 0xFFFFFFFFULL);
@@ -87,10 +92,10 @@ int main(int argc, char **argv)
           data[lane].c[(12 + j) ^ 3] = byte_val;
           tnonce /= 95ULL;
         }
-        // remaining 32 bytes from random_byte(), mapped to printable ASCII [32..126]
+        // remaining 32 bytes from random_byte(), mapped via LUT to printable ASCII [32..126]
         for(int j = 10; j < 42; ++j)
         {
-          data[lane].c[(12 + j) ^ 3] = (u08_t)((random_byte() % 95U) + 32U);
+          data[lane].c[(12 + j) ^ 3] = ascii95_lut[random_byte()];
         }
       }
 
@@ -160,8 +165,15 @@ int main(int argc, char **argv)
           double dt = wall_time_delta();
           total_elapsed_time += dt;
           double batches_per_sec = (double)report_interval / dt;
-          double iters_per_sec = (double)(report_interval * N_LANES * (unsigned long long)nth) / dt;
-          fprintf(stderr, "OMP threads=%d lanes=%d bps=%.0f ips=%.0f\n", nth, N_LANES, batches_per_sec, iters_per_sec);
+          double iters_per_sec = (double)(report_interval * (unsigned long long)N_LANES * (unsigned long long)nth) / dt;
+          // average hashes per second since start
+          double avg_hashes_per_sec = 0.0;
+          if(total_elapsed_time > 0.0)
+          {
+            unsigned long long total_hashes = (unsigned long long)batches_done * (unsigned long long)N_LANES * (unsigned long long)nth;
+            avg_hashes_per_sec = (double)total_hashes / total_elapsed_time;
+          }
+          fprintf(stderr, "OMP threads=%d lanes=%d bps=%.0f ips=%.0f avg_ips=%.0f\n", nth, N_LANES, batches_per_sec, iters_per_sec, avg_hashes_per_sec);
         }
       }
     }
