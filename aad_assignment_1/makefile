@@ -44,7 +44,7 @@ clean:
 	rm -f sha1_tests
 	rm -f sha1_cuda_test sha1_cuda_kernel.cubin
 	rm -f a.out
-	rm -f cpu_search avx_search avx2_search cuda_search simd_openmp_search
+	rm -f cpu_search avx_search avx2_search cuda_search simd_openmp_search client server
 	# remove any other build artifacts
 	rm -f *.o *.cubin *.exe
 
@@ -83,4 +83,11 @@ cuda_search: search_cuda.cu vault_wrapper.c aad_sha1_cpu.h aad_sha1.h aad_data_t
 	nvcc -arch=$(CUDA_ARCH) --compiler-options -Wall,-O3 -I. search_cuda.cu vault_wrapper.c -o $@
 
 simd_openmp_search: simd_openmp_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
+	cc -march=native -fopenmp -Wall -Wshadow -Werror -O3 $< -o $@
+
+# distributed server/client
+server: server.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_distributed.h aad_vault.h makefile
+	cc -march=native -pthread -Wall -Wshadow -Werror -O3 $< -o $@
+
+client: client.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_distributed.h makefile
 	cc -march=native -fopenmp -Wall -Wshadow -Werror -O3 $< -o $@

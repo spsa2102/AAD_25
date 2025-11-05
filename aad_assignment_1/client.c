@@ -122,6 +122,9 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
     union { u08_t c[14 * 4]; u32_t i[14]; } data[N_LANES];
     u32_t interleaved_data[14][N_LANES] __attribute__((aligned(64)));
     u32_t interleaved_hash[5][N_LANES] __attribute__((aligned(64)));
+    // Per-thread LUT mapping to printable ASCII [32..126]
+    u08_t ascii95_lut[256];
+    for(int i = 0; i < 256; ++i) ascii95_lut[i] = (u08_t)((i % 95) + 32);
     
     #pragma omp for schedule(dynamic, 1000)
     for(uint64_t batch = 0; batch < range / N_LANES; batch++)
@@ -139,14 +142,22 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
         data[lane].c[54 ^ 3] = (u08_t)'\n';
         data[lane].c[55 ^ 3] = (u08_t)0x80;
         
-        char buf[64];
-        int len = snprintf(buf, sizeof(buf), "%lu", (unsigned long)nonce);
-        if(len <= 0) { len = 1; buf[0] = '0'; }
-        for(int j = 0; j < 42; j++)
+        // Fill variable bytes 12..53:
+        // - first 10 bytes from the nonce (base-95 printable ASCII)
+        // - remaining 32 bytes from a simple per-thread LCG mapped via LUT
+        unsigned long long tnonce = nonce;
+        for(int j = 0; j < 10; ++j)
         {
-          char ch = buf[j % len];
-          if(ch == '\n') ch = '?';
-          data[lane].c[(12 + j) ^ 3] = (u08_t)ch;
+          u08_t byte_val = (u08_t)(32 + (tnonce % 95ULL));
+          data[lane].c[(12 + j) ^ 3] = byte_val;
+          tnonce /= 95ULL;
+        }
+        // lightweight per-thread LCG seeded from nonce
+        unsigned int x = (unsigned int)(nonce ^ (nonce >> 32));
+        for(int j = 10; j < 42; ++j)
+        {
+          x = 3134521u * x + 1u;
+          data[lane].c[(12 + j) ^ 3] = ascii95_lut[(u08_t)x];
         }
       }
       

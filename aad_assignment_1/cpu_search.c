@@ -31,11 +31,6 @@ int main(int argc,char **argv)
   for(int k = 0; k < 12; k++)
     coin.c[k ^ 3] = (u08_t)hdr[k];
 
-  // precompute mapping from random byte -> printable ASCII [32..126]
-  u08_t ascii95_lut[256];
-  for(int i = 0; i < 256; ++i)
-    ascii95_lut[i] = (u08_t)((i % 95) + 32);
-
   // (indices 54..55)
   coin.c[54 ^ 3] = (u08_t)'\n';
   coin.c[55 ^ 3] = (u08_t)0x80;
@@ -74,10 +69,10 @@ int main(int argc,char **argv)
       coin.c[(12 + j) ^ 3] = byte_val;
       temp_nonce /= 95;
     }
-    // remaining bytes from random_byte(), mapped via LUT to printable ASCII [32..126]
+    // remaining bytes from random_byte(), mapped to printable ASCII [32..126]
     for(int j = 10; j < 42; j++)
     {
-      coin.c[(12 + j) ^ 3] = ascii95_lut[random_byte()];
+      coin.c[(12 + j) ^ 3] = (u08_t)((random_byte() % 95) + 32);
     }
 
     // compute SHA1 using the reference implementation

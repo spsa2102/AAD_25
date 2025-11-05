@@ -104,3 +104,7 @@ V00:DETI coin 2 ;k\e_?^/S.=6gp[(\QM;Z>5V.{42tRa"2wGAFHU:W`
 V01:DETI coin 2 u,w&g@^/S.B&)n#ab-c8A@aQgQac2m@kIF+}'Xg;?+
 V00:DETI coin 2 *4zp\A^/S.;d~K7lcyG]|VMc#/hYe4hfKN5%8dT\Zc
 V01:DETI coin 2 L#Ft|A^/S.97/Kz0nG }l)a4G/_<- -X3+H%#N(xjy
+V02:DETI coin 2 TSD+"     ~6I1Sk=&f oY;rcNN'x"#\l46.?Jjc3\
+V01:DETI coin 2 P)hss     !Iibt>_vGqQL;$G`P:9SDL/gY !ZMtvn
+V00:DETI coin 2 x7;^1!    mF8AB{,6U0Ai*#5^=7g2q*[D%>pZYsdl
+V00:DETI coin 2 }Ea&9!    $S|>8hPr+\E&?/xZ2#mmF8AB{,6U0Ai*
