@@ -80,11 +80,17 @@ int main(int argc, char **argv)
 
         unsigned long long nonce = base_nonce + (unsigned long long)lane;
         unsigned long long tnonce = nonce;
-        for(int j = 0; j < 42; ++j)
+        // first 10 bytes from nonce (base-95 printable ASCII)
+        for(int j = 0; j < 10; ++j)
         {
           u08_t byte_val = (u08_t)(32 + (tnonce % 95ULL)); // printable ASCII
           data[lane].c[(12 + j) ^ 3] = byte_val;
           tnonce /= 95ULL;
+        }
+        // remaining 32 bytes from random_byte(), mapped to printable ASCII [32..126]
+        for(int j = 10; j < 42; ++j)
+        {
+          data[lane].c[(12 + j) ^ 3] = (u08_t)((random_byte() % 95U) + 32U);
         }
       }
 

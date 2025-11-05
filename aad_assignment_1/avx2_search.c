@@ -63,15 +63,22 @@ int main(int argc,char **argv)
       data[lane].c[54 ^ 3] = (u08_t)'\n';
       data[lane].c[55 ^ 3] = (u08_t)0x80;
 
-      // fill variable bytes 12..53 using sequential nonce with printable ASCII
+      // fill variable bytes 12..53:
+      // - first 10 bytes from the sequential nonce (base-95 printable ASCII)
+      // - remaining 32 bytes using random_byte() from aad_utilities
       unsigned long long nonce = base_nonce + (unsigned long long)lane;
       unsigned long long temp_nonce = nonce;
-      for(int j = 0; j < 42; ++j)
+      // first 10 bytes from nonce
+      for(int j = 0; j < 10; ++j)
       {
-        // Use base-95 encoding (printable ASCII 32-126)
         u08_t byte_val = (u08_t)(32 + (temp_nonce % 95));
         data[lane].c[(12 + j) ^ 3] = byte_val;
         temp_nonce /= 95;
+      }
+      // remaining bytes from random_byte(), mapped to printable ASCII [32..126]
+      for(int j = 10; j < 42; ++j)
+      {
+        data[lane].c[(12 + j) ^ 3] = (u08_t)((random_byte() % 95) + 32);
       }
     }
 

@@ -52,3 +52,42 @@ V00:DETI coin 2 f]n4hmK}J!
 V00:DETI coin 2 w]FLinK}J!                                
 V00:DETI coin 2 6Og+xnK}J!                                
 V04:DETI coin 2 Q"cD%oK}J!                                
+V00:DETI coin 2 g1c_TFWJn&                                
+V01:DETI coin 2 T,r`TFWJn&                                
+V03:DETI coin 2 w?)2 GWJn&                                
+V01:DETI coin 2 Z8X2'GWJn&                                
+V04:DETI coin 2 ]rY6wIWJn&                                
+V01:DETI coin 2 >WRs{IWJn&                                
+V03:DETI coin 2 X-g-'JWJn&                                
+V00:DETI coin 2 Rf{=:JWJn&                                
+V01:DETI coin 2 Vd%DhJWJn&                                
+V00:DETI coin 2 jvOw|JWJn&                                
+V00:DETI coin 2 |1d+[KWJn&                                
+V00:DETI coin 2 q'=p(LWJn&                                
+V01:DETI coin 2 Bj7MWPr_Y&           ':qaj4T9d#           
+V00:DETI coin 2 &t&Ch/Nd[+                                
+V02:DETI coin 2 A}C]if&2H!                                
+V00:DETI coin 2 kAWgg;kOO%           XhLlo"H<v#           
+V01:DETI coin 2 U7:]\                b0_SIjS?f$           
+V00:DETI coin 2 i5q_BxuB^$!ZtÕnH	sœ½çpñªÛÄ¥¾O˜ÙRCìf·À
+V00:DETI coin 2 I<?zOT"7I*b<LVuPa*JCU<]W(R2J{dE^18y4%--HW`
+V01:DETI coin 2 4nI7yT"7I*b<LVuPa*JCU<]W(R2J{dE^18y4%--HW`
+V01:DETI coin 2 <,aeRU"7I*Az+57/@h)"4]~6I1Sk=&f oY;rcNN'x"
+V01:DETI coin 2 (k@AZU"7I*Az+57/@h)"4]~6I1Sk=&f oY;rcNN'x"
+V00:DETI coin 2 aIkE`U"7I*Az+57/@h)"4]~6I1Sk=&f oY;rcNN'x"
+V00:DETI coin 2 q\73qr^+{'"[ku5o!Iibt>_vGqQL;$G`P:9SDL/gY 
+V01:DETI coin 2 +4wwq2.;h(b<LVuPa*JCU<]W(R2J{dE^18y4%--HW`
+V04:DETI coin 2 2|X={2.;h(Az+57/@h)"4]~6I1Sk=&f oY;rcNN'x"
+V00:DETI coin 2 g|B/.3.;h(B{,6U0Ai*#5^=7g2q*[D%>pZYsdlO(7@
+V00:DETI coin 2 ~YVnA<cll(9F;5D*"9uU]SX'<=;A<"'OSsmsEd< V$
+V00:DETI coin 2 C[<Kz=cll(0]^Lu?jxW;5BW3f6?PNzFJeS8=/'/#T#
+V02:DETI coin 2 >y7]7>cll(+|-[f>aNRa}!]mr_uXRP8N|]/QsF^ub6
+V01:DETI coin 2 g)WJA>cll(xWiLfsg}hzjk.5knz?p2A@cti|G2F[)`
+V05:DETI coin 2 !*8iM>cll(\Vx!q;xJ66PevAp5ky =Fmt4.Wb=d,8c
+V00:DETI coin 2 fQ~3U>cll(B66L%Cu<1m8jXNWz|#Lv<CNBZsvZeMpO
+V04:DETI coin 2 _$Ds.?cll(['VRP0[rm<7jj013b ~qeqSAj)XEl'A`
+V00:DETI coin 2 pEK WW"7I*a;KUWO`)IBT}?V'Q1,]F'@0y[3$,nG9B
+V01:DETI coin 2 IX`U.<=W`0#\l46.?Jjc3\}wH0Rj<%e~QX:TEMM&w!
+V00:DETI coin 2 '14(Bs~Mi0C:-TVN_(+$S|>8hPr+\E&?/xZ2#mmF8A
+V02:DETI coin 2 BAO2gF&#|!Az+57/@h)"4]~6I1Sk=&f oY;rcNN'x"
+V01:DETI coin 2 R+'/2X"7I*Az+57/@h)"4]~6I1Sk=&f oY;rcNN'x"

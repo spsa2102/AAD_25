@@ -58,14 +58,21 @@ int main(int argc,char **argv)
   {
     if(n_trials != 0ULL && iter >= n_trials) break;
     if(stop_requested) break;
-    // fill the 42 variable bytes using sequential nonce with printable ASCII
+    // fill the 42 variable bytes (indices 12..53):
+    // - first 10 bytes from the sequential nonce (base-95 printable ASCII)
+    // - remaining 32 bytes using random printable ASCII via random_byte()
     unsigned long long temp_nonce = nonce;
-    for(int j = 0; j < 42; j++)
+    // first 10 bytes from nonce
+    for(int j = 0; j < 10; j++)
     {
-      // Use base-95 encoding (printable ASCII 32-126)
       u08_t byte_val = (u08_t)(32 + (temp_nonce % 95));
       coin.c[(12 + j) ^ 3] = byte_val;
       temp_nonce /= 95;
+    }
+    // remaining bytes from random_byte(), mapped to printable ASCII [32..126]
+    for(int j = 10; j < 42; j++)
+    {
+      coin.c[(12 + j) ^ 3] = (u08_t)((random_byte() % 95) + 32);
     }
 
     // compute SHA1 using the reference implementation
