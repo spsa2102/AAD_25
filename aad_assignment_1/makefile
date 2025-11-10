@@ -47,6 +47,8 @@ clean:
 	rm -f cpu_search avx_search avx2_search cuda_search simd_openmp_search client server
 	# remove any other build artifacts
 	rm -f *.o *.cubin *.exe
+	# remove wasm build artifacts
+	rm -f web/wasm_search.js web/wasm_search.wasm web/wasm_search.data
 
 
 #
@@ -85,9 +87,18 @@ cuda_search: search_cuda.cu vault_wrapper.c aad_sha1_cpu.h aad_sha1.h aad_data_t
 simd_openmp_search: simd_openmp_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
 	cc -march=native -fopenmp -Wall -Wshadow -Werror -O3 $< -o $@
 
+opencl_search: opencl_search.c aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h opencl_search_kernel.cl makefile
+	cc -march=native -Wall -Wshadow -Werror -O3 $< -o $@ -I$(OPENCL_DIR)/include -L$(OPENCL_DIR)/lib64 -lOpenCL
+
 # distributed server/client
 server: server.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_distributed.h aad_vault.h makefile
 	cc -march=native -pthread -Wall -Wshadow -Werror -O3 $< -o $@
 
 client: client.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_distributed.h makefile
 	cc -march=native -fopenmp -Wall -Wshadow -Werror -O3 $< -o $@
+
+# WebAssembly build (requires Emscripten: emcc)
+wasm: web/wasm_search.c aad_sha1.h aad_data_types.h makefile
+	emcc -O3 -msimd128 -sSIMD=1 -sWASM=1 -sALLOW_MEMORY_GROWTH=1 -sMODULARIZE -sEXPORT_NAME=Module \
+	  -sEXPORTED_FUNCTIONS='[_start_search,_stop_search,_main]' -sEXPORTED_RUNTIME_METHODS='[cwrap,ccall]' \
+	  -sENVIRONMENT=web -I. -I.. web/wasm_search.c -o web/wasm_search.js
