@@ -96,9 +96,3 @@ server: server.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_
 
 client: client.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_distributed.h makefile
 	cc -march=native -fopenmp -Wall -Wshadow -Werror -O3 $< -o $@
-
-# WebAssembly build (requires Emscripten: emcc)
-wasm: web/wasm_search.c aad_sha1.h aad_data_types.h makefile
-	emcc -O3 -msimd128 -sSIMD=1 -sWASM=1 -sALLOW_MEMORY_GROWTH=1 -sMODULARIZE -sEXPORT_NAME=Module \
-	  -sEXPORTED_FUNCTIONS='[_start_search,_stop_search,_main]' -sEXPORTED_RUNTIME_METHODS='[cwrap,ccall]' \
-	  -sENVIRONMENT=web -I. -I.. web/wasm_search.c -o web/wasm_search.js
