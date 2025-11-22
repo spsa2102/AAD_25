@@ -58,7 +58,7 @@ int main(int argc,char **argv)
   u32_t interleaved_hash[5][N_LANES] __attribute__((aligned(64)));
   
   unsigned long long base_nonce = 0ULL;
-  unsigned long long batches_done = 0ULL;
+  unsigned long long hashes_done = 0ULL;
   unsigned long long report_interval = 100000000ULL;
   double total_elapsed_time = 0.0;
 
@@ -113,7 +113,7 @@ int main(int argc,char **argv)
   u08_t base_digits[11];
   to_base95_11(base_nonce, base_digits);
 
-  while((n_batches == 0ULL || batches_done < n_batches) && !stop_requested)
+  while((n_batches == 0ULL || hashes_done < n_batches) && !stop_requested)
   {
     u08_t lane_digits[N_LANES][11];
     for(int d = 0; d < 11; ++d) lane_digits[0][d] = base_digits[d];
@@ -198,25 +198,18 @@ int main(int argc,char **argv)
     }
 
     base_nonce += (unsigned long long)N_LANES;
-    ++batches_done;
+    hashes_done += (unsigned long long)N_LANES;
 
-    if((batches_done % report_interval) == 0ULL)
+    if((hashes_done % report_interval) == 0ULL)
     {
       time_measurement();
       double delta_time = wall_time_delta();
       total_elapsed_time += delta_time;
       
-      double batches_per_second = (double)report_interval / delta_time;
-      double iterations_per_second = (double)(report_interval * N_LANES) / delta_time;
+      double hashes_per_second = (double)report_interval / delta_time;
       
-      if(batches_done == 0)
-      {
-        batches_per_second = 0.0;
-        iterations_per_second = 0.0;
-      }
-      
-      fprintf(stderr,"batches=%llu nonce=%llu time=%.1f batch_per_sec=%.0f iter_per_sec=%.0f\n",
-              batches_done, base_nonce, total_elapsed_time, batches_per_second, iterations_per_second);
+      fprintf(stderr,"hashes=%llu nonce=%llu time=%.1f hashes_per_sec=%.0f\n",
+              hashes_done, base_nonce, total_elapsed_time, hashes_per_second);
     }
   }
 
