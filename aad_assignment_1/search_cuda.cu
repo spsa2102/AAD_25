@@ -46,23 +46,13 @@ __global__ void search_coins_kernel(
   for(int k = 0; k < 12; k++)
     coin_bytes[k ^ 3] = (u08_t)hdr[k];
   
-  // Fill variable bytes 12..53:
-  // - first 10 bytes from the sequential nonce (base-95 printable ASCII)
-  // - remaining 32 bytes using a simple per-thread LCG for printable ASCII
+  // Fill variable bytes 12..53 using base-95 encoding
   unsigned long long temp_nonce = nonce;
-  // first 10 bytes from nonce
-  for(int j = 0; j < 10; j++)
+  for(int j = 0; j < 42; j++)
   {
     u08_t byte_val = (u08_t)(32 + (temp_nonce % 95));
     coin_bytes[(12 + j) ^ 3] = byte_val;
     temp_nonce /= 95;
-  }
-  // simple device-side LCG seeded from nonce for printable bytes [32..126]
-  unsigned int x = (unsigned int)(nonce ^ (nonce >> 32));
-  for(int j = 10; j < 42; j++)
-  {
-    x = 3134521u * x + 1u;
-    coin_bytes[(12 + j) ^ 3] = (u08_t)((x % 95u) + 32u);
   }
   
   // Newline and padding
