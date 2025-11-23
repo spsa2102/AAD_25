@@ -96,3 +96,17 @@ server: server.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_
 
 client: client.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_distributed.h makefile
 	cc -march=native -fopenmp -Wall -Wshadow -Werror -O3 $< -o $@
+
+benchmark_all: benchmark_all.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h makefile
+        cc -march=native -Wall -Wshadow -Werror -O3 $< -o $@ -lm
+
+avx512_search: avx512_search.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
+        cc -mavx512f -march=native -Wall -Wshadow -Werror -O3 $< -o $@
+
+cuda_histogram: cuda_histogram_analysis.cu vault_wrapper.c aad_sha1_cpu.h aad_sha1.h aad_data_types.h aad_utilities.h aad_vault.h makefile
+        nvcc -arch=$(CUDA_ARCH) --compiler-options -Wall,-O3 -I. cuda_histogram_analysis.cu vault_wrapper.c -o $@
+
+run_benchmarks: benchmark_all
+        ./benchmark_all
+                                                              123,34        95%
+
