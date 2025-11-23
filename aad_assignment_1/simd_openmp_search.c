@@ -1,8 +1,3 @@
-// SIMD + OpenMP DETI coin search
-//
-// Uses AVX/AVX2/AVX512 (if available) via aad_sha1_cpu.h vector implementations
-// and parallelizes batches across threads with OpenMP. Vault writes are guarded.
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +17,6 @@ static void handle_sigint(int sig)
   stop_requested = 1;
 }
 
-// Choose lanes and function at compile time
 #if defined(__AVX512F__)
 # define N_LANES 16
 # define USE_AVX512 1
@@ -37,6 +31,26 @@ static void handle_sigint(int sig)
 # define USE_SCALAR 1
 #endif
 
+static inline void to_base95_10(unsigned long long value, u08_t digits[10])
+{
+  for(int i = 0; i < 10; ++i)
+  {
+    digits[i] = (u08_t)(value % 95ULL);
+    value /= 95ULL;
+  }
+}
+
+static inline void base95_add(u08_t digits[10], unsigned long long delta)
+{
+  unsigned long long carry = delta;
+  for(int i = 0; i < 10 && carry != 0u; ++i)
+  {
+    unsigned long long sum = (unsigned long long)digits[i] + carry;
+    digits[i] = (u08_t)(sum % 95ULL);
+    carry = sum / 95ULL;
+  }
+}
+
 int main(int argc, char **argv)
 {
   unsigned long long n_batches = 0ULL;
@@ -48,8 +62,11 @@ int main(int argc, char **argv)
   const char *hdr = "DETI coin 2 ";
 
   time_measurement();
-  unsigned long long report_interval = 10000000ULL;
   double total_elapsed_time = 0.0;
+  unsigned long long total_iterations = 0ULL;
+  unsigned long long last_report_iter = 0ULL;
+  unsigned long long global_batches = 0ULL;
+  unsigned long long coins_found = 0ULL;
 
   // Parallel region
   #pragma omp parallel
@@ -67,15 +84,34 @@ int main(int argc, char **argv)
     for(int i = 0; i < 256; ++i)
       ascii95_lut[i] = (u08_t)((i % 95) + 32);
 
+    // Pre-generate random printable tails (32 bytes per lane)
+    u08_t static_tail[N_LANES][32];
+    for(int lane = 0; lane < N_LANES; ++lane)
+      for(int j = 0; j < 32; ++j)
+        static_tail[lane][j] = ascii95_lut[random_byte()];
+
     // Initialize a different base nonce per thread
-    unsigned long long thread_seed = (unsigned long long)time(NULL) ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(tid + 1));
-    unsigned long long base_nonce = ((thread_seed & 0xFFFFFFFFULL) << 32) | ((thread_seed >> 32) & 0xFFFFFFFFULL);
+  unsigned long long thread_seed = (unsigned long long)time(NULL) ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(tid + 1));
+  unsigned long long base_nonce = ((thread_seed & 0xFFFFFFFFULL) << 32) | ((thread_seed >> 32) & 0xFFFFFFFFULL);
+  u08_t base_digits[10];
+  to_base95_10(base_nonce, base_digits);
 
     unsigned long long batches_done = 0ULL;
 
     while(!stop_requested && (n_batches == 0ULL || batches_done < n_batches))
     {
       // Prepare N_LANES messages for this batch
+      u08_t lane_digits[N_LANES][10];
+      for(int d = 0; d < 10; ++d)
+        lane_digits[0][d] = base_digits[d];
+      for(int lane = 1; lane < N_LANES; ++lane)
+      {
+        for(int d = 0; d < 10; ++d)
+          lane_digits[lane][d] = lane_digits[lane - 1][d];
+        base95_add(lane_digits[lane], 1ULL);
+      }
+
+      // Prepare data for each lane
       for(int lane = 0; lane < N_LANES; ++lane)
       {
         for(int k = 0; k < 12; ++k)
@@ -83,19 +119,13 @@ int main(int argc, char **argv)
         data[lane].c[54 ^ 3] = (u08_t)'\n';
         data[lane].c[55 ^ 3] = (u08_t)0x80;
 
-        unsigned long long nonce = base_nonce + (unsigned long long)lane;
-        unsigned long long tnonce = nonce;
-        // first 10 bytes from nonce (base-95 printable ASCII)
+        // first 10 bytes from odometer digits (base-95 printable ASCII)
         for(int j = 0; j < 10; ++j)
-        {
-          u08_t byte_val = (u08_t)(32 + (tnonce % 95ULL)); // printable ASCII
-          data[lane].c[(12 + j) ^ 3] = byte_val;
-          tnonce /= 95ULL;
-        }
-        // remaining 32 bytes from random_byte(), mapped via LUT to printable ASCII [32..126]
+          data[lane].c[(12 + j) ^ 3] = (u08_t)(lane_digits[lane][j] + 32u);
+        // remaining 32 bytes use static pre-generated printable characters
         for(int j = 10; j < 42; ++j)
         {
-          data[lane].c[(12 + j) ^ 3] = ascii95_lut[random_byte()];
+          data[lane].c[(12 + j) ^ 3] = static_tail[lane][j - 10];
         }
       }
 
@@ -144,6 +174,7 @@ int main(int argc, char **argv)
           #pragma omp critical(aad_vault)
           {
             save_coin((u32_t *)data[lane].i);
+            coins_found++;
           }
 
           // Console message: allow any thread to print, serialize output
@@ -153,27 +184,35 @@ int main(int argc, char **argv)
       }
 
       // Advance to next batch for this thread
-      base_nonce += (unsigned long long)N_LANES * (unsigned long long)nth; // stride by number of threads
+  unsigned long long stride = (unsigned long long)N_LANES * (unsigned long long)nth;
+  base_nonce += stride; // stride by number of threads
       ++batches_done;
+  base95_add(base_digits, stride);
+      
+      // Update global counter atomically
+      #pragma omp atomic
+      global_batches++;
 
-      // Occasional progress report
-      if((batches_done % report_interval) == 0ULL)
+      // Progress report every ~16 million iterations (master thread only)
+      #pragma omp master
       {
-        #pragma omp master
+  unsigned long long batches_snapshot;
+  #pragma omp atomic read
+  batches_snapshot = global_batches;
+  unsigned long long current_total = batches_snapshot * (unsigned long long)N_LANES;
+        if((current_total & 0xFFFFFF) == 0ULL && current_total != total_iterations)
         {
+          total_iterations = current_total;
           time_measurement();
-          double dt = wall_time_delta();
-          total_elapsed_time += dt;
-          double batches_per_sec = (double)report_interval / dt;
-          double iters_per_sec = (double)(report_interval * (unsigned long long)N_LANES * (unsigned long long)nth) / dt;
-          // average hashes per second since start
-          double avg_hashes_per_sec = 0.0;
-          if(total_elapsed_time > 0.0)
-          {
-            unsigned long long total_hashes = (unsigned long long)batches_done * (unsigned long long)N_LANES * (unsigned long long)nth;
-            avg_hashes_per_sec = (double)total_hashes / total_elapsed_time;
-          }
-          fprintf(stderr, "OMP threads=%d lanes=%d bps=%.0f ips=%.0f avg_ips=%.0f\n", nth, N_LANES, batches_per_sec, iters_per_sec, avg_hashes_per_sec);
+          double delta = wall_time_delta();
+          total_elapsed_time += delta;
+          double fps = (delta > 0.0) ? (double)(total_iterations - last_report_iter) / delta : 0.0;
+          last_report_iter = total_iterations;
+          
+          fprintf(stderr, "Speed: %.2f MH/s (%.2f M/min) | Nonce: %llx\n", 
+                  fps / 1000000.0, 
+                  (fps * 60.0) / 1000000.0, 
+                  base_nonce);
         }
       }
     }
@@ -181,5 +220,31 @@ int main(int argc, char **argv)
 
   // Flush vault buffer once after workers finish
   save_coin(NULL);
+  
+  // Final summary report
+  time_measurement();
+  double final_time = wall_time_delta();
+  total_elapsed_time += final_time;
+  
+  unsigned long long final_total_hashes = global_batches * (unsigned long long)N_LANES;
+  double avg_hashes_per_sec = (total_elapsed_time > 0.0) ? (double)final_total_hashes / total_elapsed_time : 0.0;
+  double avg_hashes_per_min = avg_hashes_per_sec * 60.0;
+  double hashes_per_coin = (coins_found > 0ULL) ? (double)final_total_hashes / (double)coins_found : 0.0;
+  
+  printf("\n");
+  printf("========================================\n");
+  printf("Final Summary:\n");
+  printf("========================================\n");
+  printf("Total coins found:    %llu\n", coins_found);
+  printf("Total hashes:         %llu\n", final_total_hashes);
+  printf("Total time:           %.2f seconds\n", total_elapsed_time);
+  printf("Average speed:        %.2f MH/s\n", avg_hashes_per_sec / 1000000.0);
+  printf("Average speed:        %.2f M/min\n", avg_hashes_per_min / 1000000.0);
+  if(coins_found > 0ULL)
+    printf("Hashes per coin:      %.2f\n", hashes_per_coin);
+  else
+    printf("Hashes per coin:      N/A (no coins found)\n");
+  printf("========================================\n");
+  
   return 0;
 }

@@ -62,6 +62,7 @@ int main(int argc, char **argv)
   double total_elapsed_time = 0.0;
   unsigned long long iter = 0ULL;
   unsigned long long last_report_iter = 0ULL;
+  unsigned long long coins_found = 0ULL;
 
   fprintf(stderr, "Iniciando procura CPU...\n");
 
@@ -100,6 +101,7 @@ int main(int argc, char **argv)
       printf("\"\n");
 
       save_coin(&coin.i[0]);
+      coins_found++;
     }
 
     iter++;
@@ -108,6 +110,7 @@ int main(int argc, char **argv)
     // Reporta a cada ~16 milhões de tentativas
     if((iter & 0xFFFFFF) == 0) 
     {
+      time_measurement();
       double delta = wall_time_delta();
       total_elapsed_time += delta;
       double fps = (double)(iter - last_report_iter) / delta;
@@ -117,12 +120,36 @@ int main(int argc, char **argv)
               fps / 1000000.0, 
               (fps * 60.0) / 1000000.0, 
               nonce);
-      
-      time_measurement();
     }
   }
 
   // Guardar moedas pendentes antes de sair
   save_coin(NULL);
+
+  // Report
+  time_measurement();
+  double final_time = wall_time_delta();
+  total_elapsed_time += final_time;
+
+  unsigned long long final_total_hashes = iter;
+  double avg_hashes_per_sec = (total_elapsed_time > 0.0) ? (double)final_total_hashes / total_elapsed_time : 0.0;
+  double avg_hashes_per_min = avg_hashes_per_sec * 60.0;
+  double hashes_per_coin = (coins_found > 0ULL) ? (double)final_total_hashes / (double)coins_found : 0.0;
+
+  printf("\n");
+  printf("========================================\n");
+  printf("Final Summary (CPU):\n");
+  printf("========================================\n");
+  printf("Total coins found:    %llu\n", coins_found);
+  printf("Total hashes:         %llu\n", final_total_hashes);
+  printf("Total time:           %.2f seconds\n", total_elapsed_time);
+  printf("Average speed:        %.2f MH/s\n", avg_hashes_per_sec / 1000000.0);
+  printf("Average speed:        %.2f M/min\n", avg_hashes_per_min / 1000000.0);
+  if(coins_found > 0ULL)
+    printf("Hashes per coin:      %.2f\n", hashes_per_coin);
+  else
+    printf("Hashes per coin:      N/A (no coins found)\n");
+  printf("========================================\n");
+
   return 0;
 }
