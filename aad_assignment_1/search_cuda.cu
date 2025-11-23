@@ -1,7 +1,3 @@
-//
-// CUDA DETI coin search
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +8,6 @@
 #include "aad_utilities.h"
 #include "aad_sha1.h"
 
-// Vault wrappers are implemented in a separate C file to keep C99 initializers out of CUDA C++
 extern "C" void save_coin_wrapper(u32_t *coin);
 extern "C" void save_coin_flush(void);
 
@@ -24,42 +19,53 @@ static void handle_sigint(int sig)
   stop_requested = 1;
 }
 
-// CUDA kernel for DETI coin search
+// Kernel for coin search
 __global__ void search_coins_kernel(
     unsigned long long base_nonce,
     unsigned long long num_coins,
     u32_t *found_coins,
     int *found_count,
-    int max_found)
+    int max_found,
+    u32_t *static_padding)
 {
   unsigned long long idx = blockIdx.x * blockDim.x + threadIdx.x;
   if(idx >= num_coins) return;
   
   unsigned long long nonce = base_nonce + idx;
   
-  // Prepare coin data as 14 x 32-bit words (aligned) and a byte view
-  u32_t coin_words[14];
+  // Prepare coin data
+  u32_t coin_words[16];
   u08_t *coin_bytes = (u08_t *)coin_words;
+  
+  // Initialize all to zero
+  for(int i = 0; i < 16; i++)
+    coin_words[i] = 0;
   
   // Fixed header "DETI coin 2 "
   const char *hdr = "DETI coin 2 ";
   for(int k = 0; k < 12; k++)
     coin_bytes[k ^ 3] = (u08_t)hdr[k];
   
-  // Fill variable bytes 12..53 using base-95 encoding
+  // Fill bytes 12 to 39
+  for(int i = 3; i < 10; i++)
+    coin_words[i] = static_padding[i];
+  
+  // Fill nonce bytes 40 to 53 
   unsigned long long temp_nonce = nonce;
-  for(int j = 0; j < 42; j++)
+  for(int j = 0; j < 14; j++)
   {
     u08_t byte_val = (u08_t)(32 + (temp_nonce % 95));
-    coin_bytes[(12 + j) ^ 3] = byte_val;
+    coin_bytes[(40 + j) ^ 3] = byte_val;
     temp_nonce /= 95;
   }
   
-  // Newline and padding
+  // Newline and padding (bytes 54-55)
   coin_bytes[54 ^ 3] = (u08_t)'\n';
   coin_bytes[55 ^ 3] = (u08_t)0x80;
   
-  // Compute SHA1 hash for this coin using the CUSTOM_SHA1_CODE macro (device-side)
+  coin_words[15] = 440;
+  
+  // Compute SHA1 hash for this coin
   u32_t hash[5];
 # define T            u32_t
 # define C(c)         (c)
@@ -76,13 +82,13 @@ __global__ void search_coins_kernel(
   // Check if valid DETI coin
   if(hash[0] == 0xAAD20250u)
   {
-    // Atomically add to found list
+    // Add to found list
     int pos = atomicAdd(found_count, 1);
     if(pos < max_found)
     {
       // Copy coin data to results
-      for(int i = 0; i < 14; i++)
-        found_coins[pos * 14 + i] = coin_words[i];
+      for(int i = 0; i < 16; i++)
+        found_coins[pos * 16 + i] = coin_words[i];
     }
   }
 }
@@ -101,10 +107,10 @@ int main(int argc, char **argv)
   
   unsigned long long base_nonce = 0ULL;
   unsigned long long batches_done = 0ULL;
-  unsigned long long report_interval = 500ULL;
+  unsigned long long total_iterations = 0ULL;
+  unsigned long long last_report_iter = 0ULL;
   double total_elapsed_time = 0.0;
-  
-  // Seed random number generator
+
   srand((unsigned int)time(NULL));
   
   // Initialize nonce with random value
@@ -112,14 +118,32 @@ int main(int argc, char **argv)
   
   time_measurement();
   
+  // Generate random padding for bytes 12-39
+  u32_t h_static_padding[16];
+  for(int i = 0; i < 16; i++)
+    h_static_padding[i] = 0;
+  
+  u08_t *padding_bytes = (u08_t *)h_static_padding;
+  for(int k = 12; k < 40; k++)
+  {
+    padding_bytes[k ^ 3] = (u08_t)(32 + (rand() % 95));
+  }
+  
+  h_static_padding[15] = 440;
+  
   // Allocate device memory
   u32_t *d_found_coins;
   int *d_found_count;
-  cudaMalloc(&d_found_coins, max_found_per_batch * 14 * sizeof(u32_t));
+  u32_t *d_static_padding;
+  cudaMalloc(&d_found_coins, max_found_per_batch * 16 * sizeof(u32_t));
   cudaMalloc(&d_found_count, sizeof(int));
+  cudaMalloc(&d_static_padding, 16 * sizeof(u32_t));
+  
+  // Copy static padding to device
+  cudaMemcpy(d_static_padding, h_static_padding, 16 * sizeof(u32_t), cudaMemcpyHostToDevice);
   
   // Host memory for results
-  u32_t *h_found_coins = (u32_t*)malloc(max_found_per_batch * 14 * sizeof(u32_t));
+  u32_t *h_found_coins = (u32_t*)malloc(max_found_per_batch * 16 * sizeof(u32_t));
   int h_found_count = 0;
   
   printf("Starting CUDA DETI coin search...\n");
@@ -136,7 +160,7 @@ int main(int argc, char **argv)
     // Launch kernel
     int num_blocks = (coins_per_batch + threads_per_block - 1) / threads_per_block;
     search_coins_kernel<<<num_blocks, threads_per_block>>>(
-        base_nonce, coins_per_batch, d_found_coins, d_found_count, max_found_per_batch);
+        base_nonce, coins_per_batch, d_found_coins, d_found_count, max_found_per_batch, d_static_padding);
     
     // Wait for kernel to complete
     cudaDeviceSynchronize();
@@ -155,46 +179,42 @@ int main(int argc, char **argv)
     if(h_found_count > 0)
     {
       cudaMemcpy(h_found_coins, d_found_coins, 
-                 h_found_count * 14 * sizeof(u32_t), cudaMemcpyDeviceToHost);
+                 h_found_count * 16 * sizeof(u32_t), cudaMemcpyDeviceToHost);
       
       // Process found coins
       for(int i = 0; i < h_found_count && i < max_found_per_batch; i++)
       {
-        printf("Found DETI coin on GPU!\n");
-        
-  // Save coin to vault (host-side wrapper)
-  save_coin_wrapper(&h_found_coins[i * 14]);
+        printf("Found DETI coin! \n");
+        // Save coin to vault
+        save_coin_wrapper(&h_found_coins[i * 16]);
       }
     }
     
-    // Advance
     base_nonce += coins_per_batch;
     batches_done++;
+    total_iterations += coins_per_batch;
     
-    // Progress report
-    if((batches_done % report_interval) == 0ULL)
+    // Progress report every ~16 million iterations
+    if((total_iterations & 0xFFFFFF00000000ULL) != ((total_iterations - coins_per_batch) & 0xFFFFFF00000000ULL))
     {
+      double delta = wall_time_delta();
+      total_elapsed_time += delta;
+      double fps = (double)(total_iterations - last_report_iter) / delta;
+      last_report_iter = total_iterations;
+      
+      fprintf(stderr, "Speed: %.2f MH/s (%.2f M/min) | Nonce: %llx\n", 
+              fps / 1000000.0, 
+              (fps * 60.0) / 1000000.0, 
+              base_nonce);
+      
       time_measurement();
-      double delta_time = wall_time_delta();
-      total_elapsed_time += delta_time;
-      
-      double batches_per_second = (double)report_interval / delta_time;
-      double iter_per_second = (double)(report_interval * coins_per_batch) / delta_time;
-      
-      if(batches_done == 0)
-      {
-        batches_per_second = 0.0;
-        iter_per_second = 0.0;
-      }
-      
-      fprintf(stderr, "batches=%llu nonce=%llu time=%.1f batch_per_sec=%.0f coins_per_sec=%.0f\n",
-              batches_done, base_nonce, total_elapsed_time, batches_per_second, iter_per_second);
     }
   }
   
   // Cleanup
   cudaFree(d_found_coins);
   cudaFree(d_found_count);
+  cudaFree(d_static_padding);
   free(h_found_coins);
   
   // Flush vault buffer to disk
