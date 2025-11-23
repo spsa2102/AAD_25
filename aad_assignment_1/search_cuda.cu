@@ -46,13 +46,13 @@ __global__ void search_coins_kernel(
   for(int k = 0; k < 12; k++)
     coin_bytes[k ^ 3] = (u08_t)hdr[k];
   
-  // Fill bytes 12 to 39
-  for(int i = 3; i < 10; i++)
+  // Fill bytes 12 to 53 from static padding template
+  for(int i = 3; i < 14; i++)
     coin_words[i] = static_padding[i];
   
-  // Fill nonce bytes 40 to 53 
+  // Fill nonce bytes 40 to 49 (10 bytes) so high bytes remain random
   unsigned long long temp_nonce = nonce;
-  for(int j = 0; j < 14; j++)
+  for(int j = 0; j < 10; j++)
   {
     u08_t byte_val = (u08_t)(32 + (temp_nonce % 95));
     coin_bytes[(40 + j) ^ 3] = byte_val;
@@ -124,7 +124,7 @@ int main(int argc, char **argv)
     h_static_padding[i] = 0;
   
   u08_t *padding_bytes = (u08_t *)h_static_padding;
-  for(int k = 12; k < 40; k++)
+  for(int k = 12; k < 54; k++)
   {
     padding_bytes[k ^ 3] = (u08_t)(32 + (rand() % 95));
   }
