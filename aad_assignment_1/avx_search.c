@@ -23,6 +23,12 @@ static void handle_sigint(int sig)
 # error "No AVX support detected"
 #endif
 
+static inline void write_lane_byte(u32_t data[14][N_LANES], int lane, int offset, u08_t value)
+{
+  u08_t *word_bytes = (u08_t *)&data[offset / 4][lane];
+  word_bytes[(offset & 3) ^ 3] = value;
+}
+
 // function to increment a base-95 odometer; returns highest digit updated
 static inline int base95_add(u08_t digits[11], unsigned int k)
 {
@@ -56,32 +62,19 @@ static inline void to_base95_11(u64_t x, u08_t out_digits[11])
 
 static inline void apply_nonce_digits(u32_t data[14][N_LANES], int lane, const u08_t digits[11])
 {
-  u08_t *w3  = (u08_t *)&data[3][lane];
-  u08_t *w4  = (u08_t *)&data[4][lane];
-  u08_t *w5  = (u08_t *)&data[5][lane];
-  u08_t *w13 = (u08_t *)&data[13][lane];
-
-  w3[0] = (u08_t)(digits[0] + 32u);
-  w3[1] = (u08_t)(digits[1] + 32u);
-  w3[2] = (u08_t)(digits[2] + 32u);
-  w3[3] = (u08_t)(digits[3] + 32u);
-
-  w4[0] = (u08_t)(digits[4] + 32u);
-  w4[1] = (u08_t)(digits[5] + 32u);
-  w4[2] = (u08_t)(digits[6] + 32u);
-  w4[3] = (u08_t)(digits[7] + 32u);
+  for(int d = 0; d < 4; ++d)
+    write_lane_byte(data, lane, 40 + d, (u08_t)(digits[d] + 32u));
+  for(int d = 4; d < 8; ++d)
+    write_lane_byte(data, lane, 44 + (d - 4), (u08_t)(digits[d] + 32u));
 
   u08_t ascii8 = (u08_t)(digits[8] + 32u);
   u08_t ascii9 = (u08_t)(digits[9] + 32u);
-  w5[0] = ascii8;
-  w5[1] = ascii9;
-  w5[2] = ascii8;
-  w5[3] = ascii9;
-
-  w13[0] = 0x80u;
-  w13[1] = 0x0Au;
-  w13[2] = ascii9;
-  w13[3] = ascii8;
+  write_lane_byte(data, lane, 48, ascii8);
+  write_lane_byte(data, lane, 49, ascii9);
+  write_lane_byte(data, lane, 50, ascii8);
+  write_lane_byte(data, lane, 51, ascii9);
+  write_lane_byte(data, lane, 52, ascii9);
+  write_lane_byte(data, lane, 53, ascii8);
 }
 
 static inline void refresh_nonce_digits(u32_t data[14][N_LANES], int lane, const u08_t digits[11], int max_digit)
@@ -89,32 +82,27 @@ static inline void refresh_nonce_digits(u32_t data[14][N_LANES], int lane, const
   if(max_digit < 0) return;
   if(max_digit > 9) max_digit = 9;
 
-  u08_t *w3  = (u08_t *)&data[3][lane];
-  u08_t *w4  = (u08_t *)&data[4][lane];
-  u08_t *w5  = (u08_t *)&data[5][lane];
-  u08_t *w13 = (u08_t *)&data[13][lane];
-
-  if(max_digit >= 0) w3[0] = (u08_t)(digits[0] + 32u);
-  if(max_digit >= 1) w3[1] = (u08_t)(digits[1] + 32u);
-  if(max_digit >= 2) w3[2] = (u08_t)(digits[2] + 32u);
-  if(max_digit >= 3) w3[3] = (u08_t)(digits[3] + 32u);
-  if(max_digit >= 4) w4[0] = (u08_t)(digits[4] + 32u);
-  if(max_digit >= 5) w4[1] = (u08_t)(digits[5] + 32u);
-  if(max_digit >= 6) w4[2] = (u08_t)(digits[6] + 32u);
-  if(max_digit >= 7) w4[3] = (u08_t)(digits[7] + 32u);
+  if(max_digit >= 0) write_lane_byte(data, lane, 40, (u08_t)(digits[0] + 32u));
+  if(max_digit >= 1) write_lane_byte(data, lane, 41, (u08_t)(digits[1] + 32u));
+  if(max_digit >= 2) write_lane_byte(data, lane, 42, (u08_t)(digits[2] + 32u));
+  if(max_digit >= 3) write_lane_byte(data, lane, 43, (u08_t)(digits[3] + 32u));
+  if(max_digit >= 4) write_lane_byte(data, lane, 44, (u08_t)(digits[4] + 32u));
+  if(max_digit >= 5) write_lane_byte(data, lane, 45, (u08_t)(digits[5] + 32u));
+  if(max_digit >= 6) write_lane_byte(data, lane, 46, (u08_t)(digits[6] + 32u));
+  if(max_digit >= 7) write_lane_byte(data, lane, 47, (u08_t)(digits[7] + 32u));
   if(max_digit >= 8)
   {
     u08_t ascii8 = (u08_t)(digits[8] + 32u);
-    w5[0] = ascii8;
-    w5[2] = ascii8;
-    w13[3] = ascii8;
+    write_lane_byte(data, lane, 48, ascii8);
+    write_lane_byte(data, lane, 50, ascii8);
+    write_lane_byte(data, lane, 53, ascii8);
   }
   if(max_digit >= 9)
   {
     u08_t ascii9 = (u08_t)(digits[9] + 32u);
-    w5[1] = ascii9;
-    w5[3] = ascii9;
-    w13[2] = ascii9;
+    write_lane_byte(data, lane, 49, ascii9);
+    write_lane_byte(data, lane, 51, ascii9);
+    write_lane_byte(data, lane, 52, ascii9);
   }
 }
 
@@ -151,38 +139,25 @@ int main(int argc,char **argv)
   // initialize all lanes with fixed data
   for(int lane = 0; lane < N_LANES; ++lane)
   {
+    for(int idx = 0; idx < 14; ++idx)
+      interleaved_data[idx][lane] = 0u;
     interleaved_data[0][lane] = fixed_header[0];
     interleaved_data[1][lane] = fixed_header[1];
     interleaved_data[2][lane] = fixed_header[2];
-    interleaved_data[13][lane] = 0x00000A80u; // 
+    write_lane_byte(interleaved_data, lane, 54, (u08_t)'\n');
+    write_lane_byte(interleaved_data, lane, 55, (u08_t)0x80u);
   }
 
-  // pre-generate static padding pattern (words 6-12)
+  // pre-generate static padding pattern (bytes 12-39)
   // add a small random offset so padding differs across program runs
-  u32_t static_padding[7];
-  u08_t rnd_offset = (u08_t)(rand() % 95u);
-  for(int i = 0; i < 7; ++i)
-  {
-    u32_t word = 0;
-    for(int b = 0; b < 4; ++b)
-    {
-      u08_t byte_val = (u08_t)(32 + ((i * 4 + b + rnd_offset) % 95));
-      word |= ((u32_t)byte_val) << (8 * b);
-    }
-    static_padding[i] = word;
-  }
+  u08_t static_bytes[28];
+  for(int i = 0; i < 28; ++i)
+    static_bytes[i] = (u08_t)(32 + (random_byte() % 95));
 
-  // fill static padding for all lanes once (words 6..12 never change)
+  // fill static padding for all lanes once (bytes 12..39)
   for(int lane = 0; lane < N_LANES; ++lane)
-  {
-    interleaved_data[6][lane]  = static_padding[0];
-    interleaved_data[7][lane]  = static_padding[1];
-    interleaved_data[8][lane]  = static_padding[2];
-    interleaved_data[9][lane]  = static_padding[3];
-    interleaved_data[10][lane] = static_padding[4];
-    interleaved_data[11][lane] = static_padding[5];
-    interleaved_data[12][lane] = static_padding[6];
-  }
+    for(int j = 0; j < 28; ++j)
+      write_lane_byte(interleaved_data, lane, 12 + j, static_bytes[j]);
 
   u08_t lane_digits[N_LANES][11];
   for(int lane = 0; lane < N_LANES; ++lane)
