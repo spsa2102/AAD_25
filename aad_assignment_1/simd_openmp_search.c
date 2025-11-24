@@ -40,15 +40,41 @@ static inline void to_base95_10(unsigned long long value, u08_t digits[10])
   }
 }
 
-static inline void base95_add(u08_t digits[10], unsigned long long delta)
+static inline int base95_add(u08_t digits[10], unsigned long long delta)
 {
   unsigned long long carry = delta;
+  int highest_changed = -1;
   for(int i = 0; i < 10 && carry != 0u; ++i)
   {
     unsigned long long sum = (unsigned long long)digits[i] + carry;
-    digits[i] = (u08_t)(sum % 95ULL);
-    carry = sum / 95ULL;
+    unsigned long long next_carry = sum / 95ULL;
+    sum -= next_carry * 95ULL;
+    if(digits[i] != (u08_t)sum)
+      highest_changed = i;
+    digits[i] = (u08_t)sum;
+    carry = next_carry;
   }
+  return highest_changed;
+}
+
+static inline void write_lane_byte(u32_t interleaved_data[14][N_LANES], int lane, int offset, u08_t value)
+{
+  u08_t *word_bytes = (u08_t *)&interleaved_data[offset / 4][lane];
+  word_bytes[(offset & 3) ^ 3] = value;
+}
+
+static inline void write_nonce_bytes(u32_t interleaved_data[14][N_LANES], int lane, const u08_t digits[10], int max_digit)
+{
+  if(max_digit < 0) return;
+  if(max_digit > 9) max_digit = 9;
+  for(int j = 0; j <= max_digit; ++j)
+    write_lane_byte(interleaved_data, lane, 12 + j, (u08_t)(digits[j] + 32u));
+}
+
+static inline void gather_lane_words(u32_t dst[14], u32_t interleaved_data[14][N_LANES], int lane)
+{
+  for(int idx = 0; idx < 14; ++idx)
+    dst[idx] = interleaved_data[idx][lane];
 }
 
 int main(int argc, char **argv)
@@ -75,7 +101,6 @@ int main(int argc, char **argv)
     const int nth = omp_get_num_threads();
 
     // Per-thread buffers
-    union { u08_t c[14 * 4]; u32_t i[14]; } data[N_LANES];
     u32_t interleaved_data[14][N_LANES] __attribute__((aligned(64)));
     u32_t interleaved_hash[5][N_LANES] __attribute__((aligned(64)));
 
@@ -91,48 +116,42 @@ int main(int argc, char **argv)
         static_tail[lane][j] = ascii95_lut[random_byte()];
 
     // Initialize a different base nonce per thread
-  unsigned long long thread_seed = (unsigned long long)time(NULL) ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(tid + 1));
-  unsigned long long base_nonce = ((thread_seed & 0xFFFFFFFFULL) << 32) | ((thread_seed >> 32) & 0xFFFFFFFFULL);
-  u08_t base_digits[10];
-  to_base95_10(base_nonce, base_digits);
+    unsigned long long thread_seed = (unsigned long long)time(NULL) ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(tid + 1));
+    unsigned long long base_nonce = ((thread_seed & 0xFFFFFFFFULL) << 32) | ((thread_seed >> 32) & 0xFFFFFFFFULL);
 
+    // Zero the interleaved buffer before seeding static content
+    for(int idx = 0; idx < 14; ++idx)
+      for(int lane = 0; lane < N_LANES; ++lane)
+        interleaved_data[idx][lane] = 0u;
+
+    // Write header/tail/padding once per lane (never touched inside the loop)
+    for(int lane = 0; lane < N_LANES; ++lane)
+    {
+      for(int k = 0; k < 12; ++k)
+        write_lane_byte(interleaved_data, lane, k, (u08_t)hdr[k]);
+
+      for(int j = 10; j < 42; ++j)
+        write_lane_byte(interleaved_data, lane, 12 + j, static_tail[lane][j - 10]);
+
+      write_lane_byte(interleaved_data, lane, 54, (u08_t)'\n');
+      write_lane_byte(interleaved_data, lane, 55, (u08_t)0x80);
+    }
+
+    // Persistent per-lane nonce digits and initialization
+    u08_t lane_digits[N_LANES][10];
+    for(int lane = 0; lane < N_LANES; ++lane)
+    {
+      unsigned long long lane_nonce = base_nonce + (unsigned long long)lane;
+      to_base95_10(lane_nonce, lane_digits[lane]);
+      write_nonce_bytes(interleaved_data, lane, lane_digits[lane], 9);
+    }
+
+    const unsigned long long stride = (unsigned long long)N_LANES * (unsigned long long)nth;
     unsigned long long batches_done = 0ULL;
 
     while(!stop_requested && (n_batches == 0ULL || batches_done < n_batches))
     {
-      // Prepare N_LANES messages for this batch
-      u08_t lane_digits[N_LANES][10];
-      for(int d = 0; d < 10; ++d)
-        lane_digits[0][d] = base_digits[d];
-      for(int lane = 1; lane < N_LANES; ++lane)
-      {
-        for(int d = 0; d < 10; ++d)
-          lane_digits[lane][d] = lane_digits[lane - 1][d];
-        base95_add(lane_digits[lane], 1ULL);
-      }
-
-      // Prepare data for each lane
-      for(int lane = 0; lane < N_LANES; ++lane)
-      {
-        for(int k = 0; k < 12; ++k)
-          data[lane].c[k ^ 3] = (u08_t)hdr[k];
-        data[lane].c[54 ^ 3] = (u08_t)'\n';
-        data[lane].c[55 ^ 3] = (u08_t)0x80;
-
-        // first 10 bytes from odometer digits (base-95 printable ASCII)
-        for(int j = 0; j < 10; ++j)
-          data[lane].c[(12 + j) ^ 3] = (u08_t)(lane_digits[lane][j] + 32u);
-        // remaining 32 bytes use static pre-generated printable characters
-        for(int j = 10; j < 42; ++j)
-        {
-          data[lane].c[(12 + j) ^ 3] = static_tail[lane][j - 10];
-        }
-      }
-
-      // Interleave (transpose) data into interleaved_data
-      for(int idx = 0; idx < 14; ++idx)
-        for(int lane = 0; lane < N_LANES; ++lane)
-          interleaved_data[idx][lane] = data[lane].i[idx];
+      // No per-iteration buffer prep needed; nonce bytes already live in interleaved_data
 
       // Compute SHA1
       #if defined(USE_AVX512)
@@ -145,8 +164,10 @@ int main(int argc, char **argv)
         // scalar fallback, one lane at a time
         for(int lane = 0; lane < N_LANES; ++lane)
         {
+          u32_t lane_words[14];
           u32_t htmp[5];
-          sha1((u32_t *)data[lane].i, htmp);
+          gather_lane_words(lane_words, interleaved_data, lane);
+          sha1(lane_words, htmp);
           for(int t = 0; t < 5; ++t)
             interleaved_hash[t][lane] = htmp[t];
         }
@@ -170,10 +191,13 @@ int main(int argc, char **argv)
 
           unsigned long long found_nonce = base_nonce + (unsigned long long)lane;
 
+          u32_t coin_words[14];
+          gather_lane_words(coin_words, interleaved_data, lane);
+
           // Save coin to vault (guarded)
           #pragma omp critical(aad_vault)
           {
-            save_coin((u32_t *)data[lane].i);
+            save_coin(coin_words);
             coins_found++;
           }
 
@@ -183,11 +207,16 @@ int main(int argc, char **argv)
         }
       }
 
-      // Advance to next batch for this thread
-  unsigned long long stride = (unsigned long long)N_LANES * (unsigned long long)nth;
-  base_nonce += stride; // stride by number of threads
+      // Advance nonce digits for next batch with minimal byte writes
+      for(int lane = 0; lane < N_LANES; ++lane)
+      {
+        int changed = base95_add(lane_digits[lane], stride);
+        if(changed >= 0)
+          write_nonce_bytes(interleaved_data, lane, lane_digits[lane], changed);
+      }
+
+      base_nonce += stride; // stride by number of threads
       ++batches_done;
-  base95_add(base_digits, stride);
       
       // Update global counter atomically
       #pragma omp atomic
