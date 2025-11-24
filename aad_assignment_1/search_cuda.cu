@@ -110,6 +110,7 @@ int main(int argc, char **argv)
   unsigned long long total_iterations = 0ULL;
   unsigned long long last_report_iter = 0ULL;
   double total_elapsed_time = 0.0;
+  unsigned long long coins_found = 0ULL;
 
   srand((unsigned int)time(NULL));
   
@@ -178,16 +179,19 @@ int main(int argc, char **argv)
     
     if(h_found_count > 0)
     {
+      int coins_to_process = (h_found_count > max_found_per_batch) ? max_found_per_batch : h_found_count;
       cudaMemcpy(h_found_coins, d_found_coins, 
-                 h_found_count * 16 * sizeof(u32_t), cudaMemcpyDeviceToHost);
+                 coins_to_process * 16 * sizeof(u32_t), cudaMemcpyDeviceToHost);
       
       // Process found coins
-      for(int i = 0; i < h_found_count && i < max_found_per_batch; i++)
+      for(int i = 0; i < coins_to_process; i++)
       {
         printf("Found DETI coin! \n");
         // Save coin to vault
         save_coin_wrapper(&h_found_coins[i * 16]);
       }
+
+      coins_found += (unsigned long long)coins_to_process;
     }
     
     base_nonce += coins_per_batch;
@@ -197,6 +201,7 @@ int main(int argc, char **argv)
     // Progress report every ~16 million iterations
     if((total_iterations & 0xFFFFFF00000000ULL) != ((total_iterations - coins_per_batch) & 0xFFFFFF00000000ULL))
     {
+      time_measurement();
       double delta = wall_time_delta();
       total_elapsed_time += delta;
       double fps = (double)(total_iterations - last_report_iter) / delta;
@@ -206,8 +211,6 @@ int main(int argc, char **argv)
               fps / 1000000.0, 
               (fps * 60.0) / 1000000.0, 
               base_nonce);
-      
-      time_measurement();
     }
   }
   
@@ -219,6 +222,30 @@ int main(int argc, char **argv)
   
   // Flush vault buffer to disk
   save_coin_flush();
+
+  time_measurement();
+  double final_time = wall_time_delta();
+  total_elapsed_time += final_time;
+
+  unsigned long long final_total_hashes = total_iterations;
+  double avg_hashes_per_sec = (total_elapsed_time > 0.0) ? (double)final_total_hashes / total_elapsed_time : 0.0;
+  double avg_hashes_per_min = avg_hashes_per_sec * 60.0;
+  double hashes_per_coin = (coins_found > 0ULL) ? (double)final_total_hashes / (double)coins_found : 0.0;
+
+  printf("\n");
+  printf("========================================\n");
+  printf("Final Summary (CUDA):\n");
+  printf("========================================\n");
+  printf("Total coins found:    %llu\n", coins_found);
+  printf("Total hashes:         %llu\n", final_total_hashes);
+  printf("Total time:           %.2f seconds\n", total_elapsed_time);
+  printf("Average speed:        %.2f MH/s\n", avg_hashes_per_sec / 1000000.0);
+  printf("Average speed:        %.2f M/min\n", avg_hashes_per_min / 1000000.0);
+  if(coins_found > 0ULL)
+    printf("Hashes per coin:      %.2f\n", hashes_per_coin);
+  else
+    printf("Hashes per coin:      N/A (no coins found)\n");
+  printf("========================================\n");
 
   printf("CUDA search completed.\n");
   return 0;
