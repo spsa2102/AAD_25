@@ -69,7 +69,7 @@ V00:DETI coin 2 &t&Ch/Nd[+
 V02:DETI coin 2 A}C]if&2H!                                
 V00:DETI coin 2 kAWgg;kOO%           XhLlo"H<v#           
 V01:DETI coin 2 U7:]\                b0_SIjS?f$           
-V00:DETI coin 2 i5q_BxuB^$!ZtÕnH	sœ½çpñªÛÄ¥¾O˜ÙRCìf·À
+V00:DETI coin 2 i5q_BxuB^$!Ztï¿½nH	sï¿½ï¿½ï¿½pï¿½ï¿½Ä¥ï¿½Oï¿½ï¿½RCï¿½fï¿½ï¿½
 V00:DETI coin 2 I<?zOT"7I*b<LVuPa*JCU<]W(R2J{dE^18y4%--HW`
 V01:DETI coin 2 4nI7yT"7I*b<LVuPa*JCU<]W(R2J{dE^18y4%--HW`
 V01:DETI coin 2 <,aeRU"7I*Az+57/@h)"4]~6I1Sk=&f oY;rcNN'x"
@@ -2381,3 +2381,209 @@ V01:DETI coin 2 J~~1x3e%9>Pe1Ap}gY;/A?v+9i<frnDi@c_QK!\T0-
 V01:DETI coin 2 J~~1x3e%9>Pe1Ap}gY;/A?v+9i<f%/ h:d_QK!\T0-
 V01:DETI coin 2 J~~1x3e%9>Pe1Ap}gY;/A?v+9i<f9+1~Ad_QK!\T0-
 V03:DETI coin 2 J~~1x3e%9>Pe1Ap}gY;/A?v+9i<fFo|[Xd_QK!\T0-
+V03:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+pL([CP/0M-:;5x
+V00:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+{RI'lQ/0M-:;5x
+V02:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+b~oS R/0M-:;5x
+V01:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+8"Ib0R/0M-:;5x
+V01:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+F?Y!6R/0M-:;5x
+V01:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+@Wo>@R/0M-:;5x
+V02:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+C] hAR/0M-:;5x
+V00:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+u~d#dR/0M-:;5x
+V00:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+FvDS&S/0M-:;5x
+V00:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+&6;a0S/0M-:;5x
+V00:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+JlP-XS/0M-:;5x
+V00:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+AM6.JT/0M-:;5x
+V00:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+w ~0aT/0M-:;5x
+V00:DETI coin 2 <1(<n-")Eq^&{JB,$DZK-i+(i1^+t:bm"U/0M-:;5x
+V01:DETI coin 2 26Gxee|u\95)KwAjw9#j+_.>^j8Uq1[@1\#!p#QXMf
+V00:DETI coin 2 26Gxee|u\95)KwAjw9#j+_.>^j8Ul-1y:\#!p#QXMf
+V01:DETI coin 2 26Gxee|u\95)KwAjw9#j+_.>^j8U!\Psp]#!p#QXMf
+V01:DETI coin 2 26Gxee|u\95)KwAjw9#j+_.>^j8Ub@~NO^#!p#QXMf
+V00:DETI coin 2 26Gxee|u\95)KwAjw9#j+_.>^j8Uq"@?;_#!p#QXMf
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vqNs7Z/u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v}i3]l/u[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v`8_2e0u[.$rd(Q
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vf1slf0u[.$rd(Q
+V03:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vtrC9q0u[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v0Qk>,1u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v"1iQ;2u[.$rd(Q
+V04:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vPnU(u2u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v^0*843u[.$rd(Q
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vktYY=3u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v>sIvF4u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v`yR #5u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vZ^Gx_5u[.$rd(Q
+V04:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vj)RL 6u[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v4#G]d6u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vh2A>s6u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vdvO}x6u[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v@ZiPM7u[.$rd(Q
+V03:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v6ZJ_^7u[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v2%~B48u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v6.51@8u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v,Tk&y8u[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v} _Gy8u[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vX;Ep19u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vv)]?q9u[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8ved=>z9u[.$rd(Q
+V07:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vgFGdf:u[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v6%_yZ;u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v@*8%!<u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vo&gp<<u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v?~kas<u[.$rd(Q
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vOhF-k>u[.$rd(Q
+V07:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vuN%Z{>u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v|!Z-\?u[.$rd(Q
+V03:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v'e]?%@u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vBH-&d@u[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v?`2Rf@u[.$rd(Q
+V04:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v)zbu Au[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vk<EA;Au[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v%7|(>Au[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vo7ujGAu[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vWVxn}Au[.$rd(Q
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vV%^e4Bu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vf?n1CBu[.$rd(Q
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vC^p>qBu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vW%8`NCu[.$rd(Q
+V03:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v8Dm1&Du[.$rd(Q
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vom%>2Eu[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v}QQWiFu[.$rd(Q
+V05:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vFfr/'Hu[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vm6%>:Hu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v>$[2;Hu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v5+w"0Iu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v$#(\fIu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v`xu+sIu[.$rd(Q
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vN]RQAJu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v4rJw'Ku[.$rd(Q
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vLfs-GLu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vdRzw`Lu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v<f7 zLu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v5zX~'Mu[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vj&(x)Mu[.$rd(Q
+V04:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vM.k{6Nu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vhTZKMNu[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v$L5jUNu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vOD=+mNu[.$rd(Q
+V02:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8v|*LMOOu[.$rd(Q
+V05:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vZY*CzOu[.$rd(Q
+V03:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vEm0T%Pu[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vz+F_hPu[.$rd(Q
+V00:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vr~z/CQu[.$rd(Q
+V01:DETI coin 2 l&[ZPiQEf}aKN$gNnF\^5 I!5W8vOa8MYQu[.$rd(Q
+V02:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l`RL3rL^9+ <tT{
+V01:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lvb0vWM^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l:pe{-N^9+ <tT{
+V01:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l0fMQgN^9+ <tT{
+V02:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l8Ess_O^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lDWWCjO^9+ <tT{
+V05:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lLizKYP^9+ <tT{
+V01:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l"YI(zP^9+ <tT{
+V01:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lnU8AnQ^9+ <tT{
+V01:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lKdlmOR^9+ <tT{
+V01:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lmow#"S^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l$zxKIS^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l\hfcNS^9+ <tT{
+V04:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>ljrAbOU^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lvgakvU^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lFE1$'V^9+ <tT{
+V02:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>ll-7meV^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lTIn61W^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l)bZ<DW^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l=%x<VW^9+ <tT{
+V01:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l7w(_MX^9+ <tT{
+V00:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>lput;.Y^9+ <tT{
+V01:DETI coin 2 4GJ(+y4Fi*_!(C;lg.) 1op'I$>l'~%,AZ^9+ <tT{
+V01:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;I-\<;<tYg-}x'$
+V01:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;N>sb+=tYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;d[`jq=tYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;kAr.,>tYg-}x'$
+V01:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;n].mE>tYg-}x'$
+V02:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY; XF)[>tYg-}x'$
+V01:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;39F4x?tYg-}x'$
+V03:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;3e[ac@tYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;|3~3BAtYg-}x'$
+V02:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;&S5,LAtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;*n`TQAtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;_LG;tAtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;Wd6[|AtYg-}x'$
+V03:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;h0LzsBtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;SX'R0CtYg-}x'$
+V01:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;klVl_CtYg-}x'$
+V02:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;\ 0Q-DtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;T,X[lEtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;@Sk3uEtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;>Cw;HFtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;2^f?uFtYg-}x'$
+V02:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;pNCV}FtYg-}x'$
+V01:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;fjf@!GtYg-}x'$
+V10:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;n#Ed9HtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;:XSCKHtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;\Qq*fHtYg-}x'$
+V00:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;TseAqItYg-}x'$
+V01:DETI coin 2 HJ.DAl.cR{(]TgQ9S2b_1cn~cOY;2S CXJtYg-}x'$
+V01:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVHP5Xp/5$:&\cp{
+V02:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV|-'Ek05$:&\cp{
+V09:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVT8e;y05$:&\cp{
+V02:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV?B"]e15$:&\cp{
+V01:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVOA?Dh15$:&\cp{
+V02:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV)y;0925$:&\cp{
+V00:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVZ'tVq25$:&\cp{
+V02:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVr1z[/35$:&\cp{
+V00:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV9q^}~35$:&\cp{
+V04:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV,F!J"55$:&\cp{
+V02:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV9uiEo55$:&\cp{
+V00:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV,DuC-65$:&\cp{
+V01:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV\nf=A75$:&\cp{
+V01:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVc1&LG75$:&\cp{
+V06:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVOleKL75$:&\cp{
+V05:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVe3_"Z85$:&\cp{
+V02:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVQ6z2<95$:&\cp{
+V00:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV4G,BP95$:&\cp{
+V01:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVM;~:]95$:&\cp{
+V01:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVM\t=D:5$:&\cp{
+V05:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVd{1MR:5$:&\cp{
+V06:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV!Tjh~:5$:&\cp{
+V07:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVM F)?;5$:&\cp{
+V01:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV.[/OZ;5$:&\cp{
+V01:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV>T&Gd;5$:&\cp{
+V04:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVQmaw <5$:&\cp{
+V02:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVh--S/<5$:&\cp{
+V04:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FV/OhVK<5$:&\cp{
+V05:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVQ4(iK<5$:&\cp{
+V02:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVqDCp[=5$:&\cp{
+V02:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVWzJ12>5$:&\cp{
+V00:DETI coin 2 5FI,HyK-F)>clYuCifKb(EW[Q"FVK&DN,?5$:&\cp{
+V03:DETI coin 2 _~KXuEs}-V-VDCBAHGFELKJIPONMTSRQXWVU\[ZYV-
+V02:DETI coin 2 4]cX@wqt$I$I?>=<CBA@GFEDKJIHONMLSRQPWVUTI$
+V04:DETI coin 2 h){(-A42)u)uQPONUTSRYXWV]\[Za`_^edcbihgfu)
+V01:DETI coin 2 F}4G-A45)u)uQPONUTSRYXWV]\[Za`_^edcbihgfu)
+V04:DETI coin 2 \Hjh-A4:)u)uQPONUTSRYXWV]\[Za`_^edcbihgfu)
+V05:DETI coin 2 qd+7-A4;)u)uQPONUTSRYXWV]\[Za`_^edcbihgfu)
+V03:DETI coin 2 98Po4 '\&[&[wvut{zyx ~}|$#"!('&%,+*)0/.-[&
+V00:DETI coin 2 h@-3]o?1*i*i#"! '&%$+*)(/.-,32107654;:98i*
+V00:DETI coin 2 zVn\J<pN*{*{@?>=DCBAHGFELKJIPONMTSRQXWVU{*
+V00:DETI coin 2 6W5-J<pr*{*{@?>=DCBAHGFELKJIPONMTSRQXWVU{*
+V01:DETI coin 2 *R1kJ<rM*{*{@?>=DCBAHGFELKJIPONMTSRQXWVU{*
+V01:DETI coin 2 f%beJ<r{*{*{@?>=DCBAHGFELKJIPONMTSRQXWVU{*
+V01:DETI coin 2 (F3JJ<s-*{*{@?>=DCBAHGFELKJIPONMTSRQXWVU{*
+V03:DETI coin 2 0123456789:;<=>?@ABCDEFGHIJK[A$MHy{T{ {  {
+V02:DETI coin 2 wxyz{|}~ !"#$%&'()*+,-./0123qK0ACCOFU#U##U
+V04:DETI coin 2 2^Jn?;t,WC5g_sV-kUbub00]:&)HP$[uQbUli i  i
+V00:DETI coin 2 2^Jn?;t,WC5g_sV-kUbub00]:&)H</doX18uA$A$$A
+V01:DETI coin 2 2^Jn?;t,WC5g_sV-kUbub00]:&)HGuVjd18uA$A$$A
+V00:DETI coin 2 2^Jn?;t,WC5g_sV-kUbub00]:&)H2wGAcp>U)+)++)
+V00:DETI coin 2 2^Jn?;t,WC5g_sV-kUbub00]:&)H5F!pip>U)+)++)
+V01:DETI coin 2 vMEM`R#w)2_S6,QCp__&^~].:B<+1"R)Z^ La,CL:\
+V00:DETI coin 2 k)aQdTf&x0rX!xBa:4%G/\WL}(`A#YdAQ%lmS:/F9r
+V03:DETI coin 2 !ML(jR#w)2U7?D"o/bRso+Dff#/[6"il:Nu>+ErczR
+V02:DETI coin 2 =pu|`gH^U"p,GSGxKm9@5i=lVaJg<> R7"A9n:N-fJ
+V00:DETI coin 2 ~`GY}LL^U"LX5}=#8BWq;F,9TSJoS~dsd@s/(W)%MW
+V02:DETI coin 2 =`r;.1JV@1:jMIW\NM3PaS*Qw1_9Rg2@bNa+"Vlu?c
+V00:DETI coin 2 DCyIP(k&x0"F^*UEMcGI#G~5"|IG-Dwq&46/$0@Q{&
+V03:DETI coin 2 |) 53HBQI"P'R1RnG&#SL-/HKehqu2Wov^?X%U {>H
+V00:DETI coin 2 v\SOcDm&x0;Y^S#dr&BPvnqFyVKPT(0IUY<;HN5V~'
+V00:DETI coin 2 \EN{2Oq^z!+?1%/W=*Kwf4a7N.!`{gXzV<v%<*>~AY
+V01:DETI coin 2 V2*}=3h;32c"I;3FjDH/K-`;Ir:DPy$q}:GQdZ~]?=
+V07:DETI coin 2 kh(b1"m&x0DA(k}At}Y.Ma/ +YVb8;v/"<bsf>^G=Q
