@@ -1,7 +1,6 @@
 ### TODO:
 * Melhorar server e client
 * Web assembly e SIMD
-* openCL
 * oneAPI
 * ROCm
 * histograma wall time cuda

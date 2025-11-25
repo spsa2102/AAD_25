@@ -48,7 +48,7 @@ clean:
 	# remove any other build artifacts
 	rm -f *.o *.cubin *.exe
 	# remove wasm build artifacts
-	rm -f web/wasm_search.js web/wasm_search.wasm web/wasm_search.data
+	rm -f wasm_search.js wasm_search.wasm wasm_simd_search.js wasm_simd_search.wasm
 
 
 #
@@ -108,3 +108,4 @@ cuda_histogram: cuda_histogram_analysis.cu vault_wrapper.c aad_sha1_cpu.h aad_sh
 
 run_benchmarks: benchmark_all
 	./benchmark_all
+	
