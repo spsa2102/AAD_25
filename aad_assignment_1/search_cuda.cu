@@ -11,6 +11,62 @@
 extern "C" void save_coin_wrapper(u32_t *coin);
 extern "C" void save_coin_flush(void);
 
+#define NONCES_PER_THREAD 8
+
+__constant__ u32_t c_static_words[16];
+__constant__ u08_t c_base_nonce_digits[10];
+
+__device__ __forceinline__ void load_base_nonce_digits(u08_t digits[10])
+{
+  #pragma unroll
+  for(int i = 0; i < 10; ++i)
+    digits[i] = c_base_nonce_digits[i];
+}
+
+__device__ __forceinline__ void add_offset_to_digits(u08_t digits[10], unsigned long long offset)
+{
+  unsigned long long carry = offset;
+  for(int i = 0; i < 10 && carry > 0ULL; ++i)
+  {
+    unsigned long long val = (unsigned long long)digits[i] + (carry % 95ULL);
+    carry /= 95ULL;
+    if(val >= 95ULL)
+    {
+      digits[i] = (u08_t)(val - 95ULL);
+      carry += 1ULL;
+    }
+    else
+    {
+      digits[i] = (u08_t)val;
+    }
+  }
+}
+
+__device__ __forceinline__ void increment_base95(u08_t digits[10])
+{
+  #pragma unroll
+  for(int i = 0; i < 10; ++i)
+  {
+    u08_t val = (u08_t)(digits[i] + 1u);
+    if(val >= 95u)
+    {
+      digits[i] = 0u;
+    }
+    else
+    {
+      digits[i] = val;
+      break;
+    }
+  }
+}
+
+__device__ __forceinline__ void write_nonce_bytes(u08_t *coin_bytes, const u08_t digits[10])
+{
+  #pragma unroll
+  for(int j = 0; j < 10; ++j)
+    coin_bytes[(40 + j) ^ 3] = (u08_t)(digits[j] + 32u);
+}
+
 static volatile sig_atomic_t stop_requested = 0;
 
 static void handle_sigint(int sig)
@@ -19,54 +75,47 @@ static void handle_sigint(int sig)
   stop_requested = 1;
 }
 
+static void nonce_to_base95_host(unsigned long long value, u08_t digits[10])
+{
+  for(int i = 0; i < 10; ++i)
+  {
+    digits[i] = (u08_t)(value % 95ULL);
+    value /= 95ULL;
+  }
+}
+
 // Kernel for coin search
 __global__ void search_coins_kernel(
-    unsigned long long base_nonce,
-    unsigned long long num_coins,
-    u32_t *found_coins,
-    int *found_count,
-    int max_found,
-    u32_t *static_padding)
+  unsigned long long num_coins,
+  u32_t *found_coins,
+  int *found_count,
+  int max_found)
 {
-  unsigned long long idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if(idx >= num_coins) return;
-  
-  unsigned long long nonce = base_nonce + idx;
-  
-  // Prepare coin data
+  unsigned long long thread_id = blockIdx.x * blockDim.x + threadIdx.x;
+  unsigned long long first_nonce_index = thread_id * (unsigned long long)NONCES_PER_THREAD;
+  if(first_nonce_index >= num_coins)
+    return;
+
+  unsigned long long current_index = first_nonce_index;
+
+  u08_t digits[10];
+  load_base_nonce_digits(digits);
+  add_offset_to_digits(digits, first_nonce_index);
+
   u32_t coin_words[16];
   u08_t *coin_bytes = (u08_t *)coin_words;
-  
-  // Initialize all to zero
-  for(int i = 0; i < 16; i++)
-    coin_words[i] = 0;
-  
-  // Fixed header "DETI coin 2 "
-  const char *hdr = "DETI coin 2 ";
-  for(int k = 0; k < 12; k++)
-    coin_bytes[k ^ 3] = (u08_t)hdr[k];
-  
-  // Fill bytes 12 to 53 from static padding template
-  for(int i = 3; i < 14; i++)
-    coin_words[i] = static_padding[i];
-  
-  // Fill nonce bytes 40 to 49 (10 bytes) so high bytes remain random
-  unsigned long long temp_nonce = nonce;
-  for(int j = 0; j < 10; j++)
+
+  for(int iter = 0; iter < NONCES_PER_THREAD && current_index < num_coins; ++iter, ++current_index)
   {
-    u08_t byte_val = (u08_t)(32 + (temp_nonce % 95));
-    coin_bytes[(40 + j) ^ 3] = byte_val;
-    temp_nonce /= 95;
-  }
+    #pragma unroll
+    for(int i = 0; i < 16; i++)
+      coin_words[i] = c_static_words[i];
+
+    // Write nonce bytes from odometer digits
+    write_nonce_bytes(coin_bytes, digits);
   
-  // Newline and padding (bytes 54-55)
-  coin_bytes[54 ^ 3] = (u08_t)'\n';
-  coin_bytes[55 ^ 3] = (u08_t)0x80;
-  
-  coin_words[15] = 440;
-  
-  // Compute SHA1 hash for this coin
-  u32_t hash[5];
+    // Compute SHA1 hash for this coin
+    u32_t hash[5];
 # define T            u32_t
 # define C(c)         (c)
 # define ROTATE(x,n)  (((x) << (n)) | ((x) >> (32 - (n))))
@@ -79,17 +128,18 @@ __global__ void search_coins_kernel(
 # undef DATA
 # undef HASH
   
-  // Check if valid DETI coin
-  if(hash[0] == 0xAAD20250u)
-  {
-    // Add to found list
-    int pos = atomicAdd(found_count, 1);
-    if(pos < max_found)
+    // Check if valid DETI coin
+    if(hash[0] == 0xAAD20250u)
     {
-      // Copy coin data to results
-      for(int i = 0; i < 16; i++)
-        found_coins[pos * 16 + i] = coin_words[i];
+      int pos = atomicAdd(found_count, 1);
+      if(pos < max_found)
+      {
+        for(int i = 0; i < 16; i++)
+          found_coins[pos * 16 + i] = coin_words[i];
+      }
     }
+
+    increment_base95(digits);
   }
 }
 
@@ -102,7 +152,7 @@ int main(int argc, char **argv)
   (void)signal(SIGINT, handle_sigint);
   
   const int threads_per_block = 256;
-  const unsigned long long coins_per_batch = 1024 * 1024;
+  const unsigned long long coins_per_batch = 32 * 1024 * 1024;
   const int max_found_per_batch = 1024;
   
   unsigned long long base_nonce = 0ULL;
@@ -119,29 +169,30 @@ int main(int argc, char **argv)
   
   time_measurement();
   
-  // Generate random padding for bytes 12-39
-  u32_t h_static_padding[16];
+  // Build static coin template (header + random padding)
+  u32_t h_coin_template[16];
   for(int i = 0; i < 16; i++)
-    h_static_padding[i] = 0;
-  
-  u08_t *padding_bytes = (u08_t *)h_static_padding;
+    h_coin_template[i] = 0;
+
+  u08_t *template_bytes = (u08_t *)h_coin_template;
+  const char *hdr = "DETI coin 2 ";
+  for(int k = 0; k < 12; k++)
+    template_bytes[k ^ 3] = (u08_t)hdr[k];
+
   for(int k = 12; k < 54; k++)
-  {
-    padding_bytes[k ^ 3] = (u08_t)(32 + (rand() % 95));
-  }
-  
-  h_static_padding[15] = 440;
+    template_bytes[k ^ 3] = (u08_t)(32 + (rand() % 95));
+
+  template_bytes[54 ^ 3] = (u08_t)'\n';
+  template_bytes[55 ^ 3] = (u08_t)0x80;
+  h_coin_template[15] = 440;
+
+  cudaMemcpyToSymbol(c_static_words, h_coin_template, sizeof(h_coin_template), 0, cudaMemcpyHostToDevice);
   
   // Allocate device memory
   u32_t *d_found_coins;
   int *d_found_count;
-  u32_t *d_static_padding;
   cudaMalloc(&d_found_coins, max_found_per_batch * 16 * sizeof(u32_t));
   cudaMalloc(&d_found_count, sizeof(int));
-  cudaMalloc(&d_static_padding, 16 * sizeof(u32_t));
-  
-  // Copy static padding to device
-  cudaMemcpy(d_static_padding, h_static_padding, 16 * sizeof(u32_t), cudaMemcpyHostToDevice);
   
   // Host memory for results
   u32_t *h_found_coins = (u32_t*)malloc(max_found_per_batch * 16 * sizeof(u32_t));
@@ -157,11 +208,15 @@ int main(int argc, char **argv)
     // Reset found counter
     h_found_count = 0;
     cudaMemcpy(d_found_count, &h_found_count, sizeof(int), cudaMemcpyHostToDevice);
+
+    u08_t h_base_digits[10];
+    nonce_to_base95_host(base_nonce, h_base_digits);
+    cudaMemcpyToSymbol(c_base_nonce_digits, h_base_digits, sizeof(h_base_digits), 0, cudaMemcpyHostToDevice);
     
-    // Launch kernel
-    int num_blocks = (coins_per_batch + threads_per_block - 1) / threads_per_block;
+    unsigned long long threads_needed = (coins_per_batch + NONCES_PER_THREAD - 1ULL) / (unsigned long long)NONCES_PER_THREAD;
+    int num_blocks = (int)((threads_needed + threads_per_block - 1ULL) / threads_per_block);
     search_coins_kernel<<<num_blocks, threads_per_block>>>(
-        base_nonce, coins_per_batch, d_found_coins, d_found_count, max_found_per_batch, d_static_padding);
+      coins_per_batch, d_found_coins, d_found_count, max_found_per_batch);
     
     // Wait for kernel to complete
     cudaDeviceSynchronize();
@@ -217,7 +272,6 @@ int main(int argc, char **argv)
   // Cleanup
   cudaFree(d_found_coins);
   cudaFree(d_found_count);
-  cudaFree(d_static_padding);
   free(h_found_coins);
   
   // Flush vault buffer to disk
