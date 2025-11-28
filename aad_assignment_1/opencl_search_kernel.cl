@@ -1,157 +1,146 @@
 //
-// OpenCL kernel for DETI coin search
+// Ultra-optimized OpenCL kernel for DETI coin search
 // Arquiteturas de Alto Desempenho 2025/2026
 //
 
-// SHA-1 constants and functions
-#define SHA1_F1(x,y,z)  ((x & y) | (~x & z))
-#define SHA1_K1         0x5A827999u
-#define SHA1_F2(x,y,z)  (x ^ y ^ z)
-#define SHA1_K2         0x6ED9EBA1u
-#define SHA1_F3(x,y,z)  ((x & y) | (x & z) | (y & z))
-#define SHA1_K3         0x8F1BBCDCu
-#define SHA1_F4(x,y,z)  (x ^ y ^ z)
-#define SHA1_K4         0xCA62C1D6u
+// SHA-1 inline computation - highly optimized
+#define ROTLEFT(a,b) rotate((a), (uint)(b))
 
-#define SHA1_D(t)                                                                            \
-  do                                                                                         \
-  {                                                                                          \
-    unsigned int tmp = w[((t) - 3) & 15] ^ w[((t) - 8) & 15] ^ w[((t) - 14) & 15] ^ w[((t) - 16) & 15]; \
-    w[(t) & 15] = rotate(tmp, 1u);                                                           \
-  }                                                                                          \
-  while(0)
+#define SHA1_ROUND1(a,b,c,d,e,w,k) \
+  e += ROTLEFT(a,5) + ((b & c) | (~b & d)) + w + k; \
+  b = ROTLEFT(b,30);
 
-#define SHA1_S(F,t,K)                                                                        \
-  do                                                                                         \
-  {                                                                                          \
-    unsigned int tmp = rotate(a, 5u) + F(b,c,d) + e + w[(t) & 15] + (K);                    \
-    e = d;                                                                                   \
-    d = c;                                                                                   \
-    c = rotate(b, 30u);                                                                      \
-    b = a;                                                                                   \
-    a = tmp;                                                                                 \
-  }                                                                                          \
-  while(0)
+#define SHA1_ROUND2(a,b,c,d,e,w,k) \
+  e += ROTLEFT(a,5) + (b ^ c ^ d) + w + k; \
+  b = ROTLEFT(b,30);
 
-// Inline SHA-1 computation
-inline void compute_sha1(unsigned int *coin_words, unsigned int *hash)
+#define SHA1_ROUND3(a,b,c,d,e,w,k) \
+  e += ROTLEFT(a,5) + ((b & c) | (b & d) | (c & d)) + w + k; \
+  b = ROTLEFT(b,30);
+
+#define SHA1_ROUND4(a,b,c,d,e,w,k) \
+  e += ROTLEFT(a,5) + (b ^ c ^ d) + w + k; \
+  b = ROTLEFT(b,30);
+
+inline void compute_sha1_optimized(uint *coin_words, uint *hash)
 {
-  unsigned int a, b, c, d, e, w[16];
+  uint a = 0x67452301u;
+  uint b = 0xEFCDAB89u;
+  uint c = 0x98BADCFEu;
+  uint d = 0x10325476u;
+  uint e = 0xC3D2E1F0u;
   
-  // Initial state
-  a = 0x67452301u;
-  b = 0xEFCDAB89u;
-  c = 0x98BADCFEu;
-  d = 0x10325476u;
-  e = 0xC3D2E1F0u;
+  uint w[16];
   
-  // Copy data to internal buffer
-  w[ 0] = coin_words[ 0];
-  w[ 1] = coin_words[ 1];
-  w[ 2] = coin_words[ 2];
-  w[ 3] = coin_words[ 3];
-  w[ 4] = coin_words[ 4];
-  w[ 5] = coin_words[ 5];
-  w[ 6] = coin_words[ 6];
-  w[ 7] = coin_words[ 7];
-  w[ 8] = coin_words[ 8];
-  w[ 9] = coin_words[ 9];
+  // Load input data - unrolled
+  w[0] = coin_words[0];
+  w[1] = coin_words[1];
+  w[2] = coin_words[2];
+  w[3] = coin_words[3];
+  w[4] = coin_words[4];
+  w[5] = coin_words[5];
+  w[6] = coin_words[6];
+  w[7] = coin_words[7];
+  w[8] = coin_words[8];
+  w[9] = coin_words[9];
   w[10] = coin_words[10];
   w[11] = coin_words[11];
   w[12] = coin_words[12];
   w[13] = coin_words[13];
-  w[14] = 0;
-  w[15] = 440; // 55*8 bits
+  w[14] = 0u;
+  w[15] = 440u; // 55*8 bits
   
-  // First group (0-19)
-              SHA1_S(SHA1_F1, 0,SHA1_K1);
-              SHA1_S(SHA1_F1, 1,SHA1_K1);
-              SHA1_S(SHA1_F1, 2,SHA1_K1);
-              SHA1_S(SHA1_F1, 3,SHA1_K1);
-              SHA1_S(SHA1_F1, 4,SHA1_K1);
-              SHA1_S(SHA1_F1, 5,SHA1_K1);
-              SHA1_S(SHA1_F1, 6,SHA1_K1);
-              SHA1_S(SHA1_F1, 7,SHA1_K1);
-              SHA1_S(SHA1_F1, 8,SHA1_K1);
-              SHA1_S(SHA1_F1, 9,SHA1_K1);
-              SHA1_S(SHA1_F1,10,SHA1_K1);
-              SHA1_S(SHA1_F1,11,SHA1_K1);
-              SHA1_S(SHA1_F1,12,SHA1_K1);
-              SHA1_S(SHA1_F1,13,SHA1_K1);
-              SHA1_S(SHA1_F1,14,SHA1_K1);
-              SHA1_S(SHA1_F1,15,SHA1_K1);
-  SHA1_D(16); SHA1_S(SHA1_F1,16,SHA1_K1);
-  SHA1_D(17); SHA1_S(SHA1_F1,17,SHA1_K1);
-  SHA1_D(18); SHA1_S(SHA1_F1,18,SHA1_K1);
-  SHA1_D(19); SHA1_S(SHA1_F1,19,SHA1_K1);
+  // Rounds 0-15 (first 16 use input directly)
+  SHA1_ROUND1(a,b,c,d,e,w[0],0x5A827999u);
+  SHA1_ROUND1(e,a,b,c,d,w[1],0x5A827999u);
+  SHA1_ROUND1(d,e,a,b,c,w[2],0x5A827999u);
+  SHA1_ROUND1(c,d,e,a,b,w[3],0x5A827999u);
+  SHA1_ROUND1(b,c,d,e,a,w[4],0x5A827999u);
+  SHA1_ROUND1(a,b,c,d,e,w[5],0x5A827999u);
+  SHA1_ROUND1(e,a,b,c,d,w[6],0x5A827999u);
+  SHA1_ROUND1(d,e,a,b,c,w[7],0x5A827999u);
+  SHA1_ROUND1(c,d,e,a,b,w[8],0x5A827999u);
+  SHA1_ROUND1(b,c,d,e,a,w[9],0x5A827999u);
+  SHA1_ROUND1(a,b,c,d,e,w[10],0x5A827999u);
+  SHA1_ROUND1(e,a,b,c,d,w[11],0x5A827999u);
+  SHA1_ROUND1(d,e,a,b,c,w[12],0x5A827999u);
+  SHA1_ROUND1(c,d,e,a,b,w[13],0x5A827999u);
+  SHA1_ROUND1(b,c,d,e,a,w[14],0x5A827999u);
+  SHA1_ROUND1(a,b,c,d,e,w[15],0x5A827999u);
   
-  // Second group (20-39)
-  SHA1_D(20); SHA1_S(SHA1_F2,20,SHA1_K2);
-  SHA1_D(21); SHA1_S(SHA1_F2,21,SHA1_K2);
-  SHA1_D(22); SHA1_S(SHA1_F2,22,SHA1_K2);
-  SHA1_D(23); SHA1_S(SHA1_F2,23,SHA1_K2);
-  SHA1_D(24); SHA1_S(SHA1_F2,24,SHA1_K2);
-  SHA1_D(25); SHA1_S(SHA1_F2,25,SHA1_K2);
-  SHA1_D(26); SHA1_S(SHA1_F2,26,SHA1_K2);
-  SHA1_D(27); SHA1_S(SHA1_F2,27,SHA1_K2);
-  SHA1_D(28); SHA1_S(SHA1_F2,28,SHA1_K2);
-  SHA1_D(29); SHA1_S(SHA1_F2,29,SHA1_K2);
-  SHA1_D(30); SHA1_S(SHA1_F2,30,SHA1_K2);
-  SHA1_D(31); SHA1_S(SHA1_F2,31,SHA1_K2);
-  SHA1_D(32); SHA1_S(SHA1_F2,32,SHA1_K2);
-  SHA1_D(33); SHA1_S(SHA1_F2,33,SHA1_K2);
-  SHA1_D(34); SHA1_S(SHA1_F2,34,SHA1_K2);
-  SHA1_D(35); SHA1_S(SHA1_F2,35,SHA1_K2);
-  SHA1_D(36); SHA1_S(SHA1_F2,36,SHA1_K2);
-  SHA1_D(37); SHA1_S(SHA1_F2,37,SHA1_K2);
-  SHA1_D(38); SHA1_S(SHA1_F2,38,SHA1_K2);
-  SHA1_D(39); SHA1_S(SHA1_F2,39,SHA1_K2);
+  // Rounds 16-19
+  w[0] = ROTLEFT((w[13] ^ w[8] ^ w[2] ^ w[0]), 1); SHA1_ROUND1(e,a,b,c,d,w[0],0x5A827999u);
+  w[1] = ROTLEFT((w[14] ^ w[9] ^ w[3] ^ w[1]), 1); SHA1_ROUND1(d,e,a,b,c,w[1],0x5A827999u);
+  w[2] = ROTLEFT((w[15] ^ w[10] ^ w[4] ^ w[2]), 1); SHA1_ROUND1(c,d,e,a,b,w[2],0x5A827999u);
+  w[3] = ROTLEFT((w[0] ^ w[11] ^ w[5] ^ w[3]), 1); SHA1_ROUND1(b,c,d,e,a,w[3],0x5A827999u);
   
-  // Third group (40-59)
-  SHA1_D(40); SHA1_S(SHA1_F3,40,SHA1_K3);
-  SHA1_D(41); SHA1_S(SHA1_F3,41,SHA1_K3);
-  SHA1_D(42); SHA1_S(SHA1_F3,42,SHA1_K3);
-  SHA1_D(43); SHA1_S(SHA1_F3,43,SHA1_K3);
-  SHA1_D(44); SHA1_S(SHA1_F3,44,SHA1_K3);
-  SHA1_D(45); SHA1_S(SHA1_F3,45,SHA1_K3);
-  SHA1_D(46); SHA1_S(SHA1_F3,46,SHA1_K3);
-  SHA1_D(47); SHA1_S(SHA1_F3,47,SHA1_K3);
-  SHA1_D(48); SHA1_S(SHA1_F3,48,SHA1_K3);
-  SHA1_D(49); SHA1_S(SHA1_F3,49,SHA1_K3);
-  SHA1_D(50); SHA1_S(SHA1_F3,50,SHA1_K3);
-  SHA1_D(51); SHA1_S(SHA1_F3,51,SHA1_K3);
-  SHA1_D(52); SHA1_S(SHA1_F3,52,SHA1_K3);
-  SHA1_D(53); SHA1_S(SHA1_F3,53,SHA1_K3);
-  SHA1_D(54); SHA1_S(SHA1_F3,54,SHA1_K3);
-  SHA1_D(55); SHA1_S(SHA1_F3,55,SHA1_K3);
-  SHA1_D(56); SHA1_S(SHA1_F3,56,SHA1_K3);
-  SHA1_D(57); SHA1_S(SHA1_F3,57,SHA1_K3);
-  SHA1_D(58); SHA1_S(SHA1_F3,58,SHA1_K3);
-  SHA1_D(59); SHA1_S(SHA1_F3,59,SHA1_K3);
+  // Rounds 20-39
+  w[4] = ROTLEFT((w[1] ^ w[12] ^ w[6] ^ w[4]), 1); SHA1_ROUND2(a,b,c,d,e,w[4],0x6ED9EBA1u);
+  w[5] = ROTLEFT((w[2] ^ w[13] ^ w[7] ^ w[5]), 1); SHA1_ROUND2(e,a,b,c,d,w[5],0x6ED9EBA1u);
+  w[6] = ROTLEFT((w[3] ^ w[14] ^ w[8] ^ w[6]), 1); SHA1_ROUND2(d,e,a,b,c,w[6],0x6ED9EBA1u);
+  w[7] = ROTLEFT((w[4] ^ w[15] ^ w[9] ^ w[7]), 1); SHA1_ROUND2(c,d,e,a,b,w[7],0x6ED9EBA1u);
+  w[8] = ROTLEFT((w[5] ^ w[0] ^ w[10] ^ w[8]), 1); SHA1_ROUND2(b,c,d,e,a,w[8],0x6ED9EBA1u);
+  w[9] = ROTLEFT((w[6] ^ w[1] ^ w[11] ^ w[9]), 1); SHA1_ROUND2(a,b,c,d,e,w[9],0x6ED9EBA1u);
+  w[10] = ROTLEFT((w[7] ^ w[2] ^ w[12] ^ w[10]), 1); SHA1_ROUND2(e,a,b,c,d,w[10],0x6ED9EBA1u);
+  w[11] = ROTLEFT((w[8] ^ w[3] ^ w[13] ^ w[11]), 1); SHA1_ROUND2(d,e,a,b,c,w[11],0x6ED9EBA1u);
+  w[12] = ROTLEFT((w[9] ^ w[4] ^ w[14] ^ w[12]), 1); SHA1_ROUND2(c,d,e,a,b,w[12],0x6ED9EBA1u);
+  w[13] = ROTLEFT((w[10] ^ w[5] ^ w[15] ^ w[13]), 1); SHA1_ROUND2(b,c,d,e,a,w[13],0x6ED9EBA1u);
+  w[14] = ROTLEFT((w[11] ^ w[6] ^ w[0] ^ w[14]), 1); SHA1_ROUND2(a,b,c,d,e,w[14],0x6ED9EBA1u);
+  w[15] = ROTLEFT((w[12] ^ w[7] ^ w[1] ^ w[15]), 1); SHA1_ROUND2(e,a,b,c,d,w[15],0x6ED9EBA1u);
+  w[0] = ROTLEFT((w[13] ^ w[8] ^ w[2] ^ w[0]), 1); SHA1_ROUND2(d,e,a,b,c,w[0],0x6ED9EBA1u);
+  w[1] = ROTLEFT((w[14] ^ w[9] ^ w[3] ^ w[1]), 1); SHA1_ROUND2(c,d,e,a,b,w[1],0x6ED9EBA1u);
+  w[2] = ROTLEFT((w[15] ^ w[10] ^ w[4] ^ w[2]), 1); SHA1_ROUND2(b,c,d,e,a,w[2],0x6ED9EBA1u);
+  w[3] = ROTLEFT((w[0] ^ w[11] ^ w[5] ^ w[3]), 1); SHA1_ROUND2(a,b,c,d,e,w[3],0x6ED9EBA1u);
+  w[4] = ROTLEFT((w[1] ^ w[12] ^ w[6] ^ w[4]), 1); SHA1_ROUND2(e,a,b,c,d,w[4],0x6ED9EBA1u);
+  w[5] = ROTLEFT((w[2] ^ w[13] ^ w[7] ^ w[5]), 1); SHA1_ROUND2(d,e,a,b,c,w[5],0x6ED9EBA1u);
+  w[6] = ROTLEFT((w[3] ^ w[14] ^ w[8] ^ w[6]), 1); SHA1_ROUND2(c,d,e,a,b,w[6],0x6ED9EBA1u);
+  w[7] = ROTLEFT((w[4] ^ w[15] ^ w[9] ^ w[7]), 1); SHA1_ROUND2(b,c,d,e,a,w[7],0x6ED9EBA1u);
   
-  // Fourth group (60-79)
-  SHA1_D(60); SHA1_S(SHA1_F4,60,SHA1_K4);
-  SHA1_D(61); SHA1_S(SHA1_F4,61,SHA1_K4);
-  SHA1_D(62); SHA1_S(SHA1_F4,62,SHA1_K4);
-  SHA1_D(63); SHA1_S(SHA1_F4,63,SHA1_K4);
-  SHA1_D(64); SHA1_S(SHA1_F4,64,SHA1_K4);
-  SHA1_D(65); SHA1_S(SHA1_F4,65,SHA1_K4);
-  SHA1_D(66); SHA1_S(SHA1_F4,66,SHA1_K4);
-  SHA1_D(67); SHA1_S(SHA1_F4,67,SHA1_K4);
-  SHA1_D(68); SHA1_S(SHA1_F4,68,SHA1_K4);
-  SHA1_D(69); SHA1_S(SHA1_F4,69,SHA1_K4);
-  SHA1_D(70); SHA1_S(SHA1_F4,70,SHA1_K4);
-  SHA1_D(71); SHA1_S(SHA1_F4,71,SHA1_K4);
-  SHA1_D(72); SHA1_S(SHA1_F4,72,SHA1_K4);
-  SHA1_D(73); SHA1_S(SHA1_F4,73,SHA1_K4);
-  SHA1_D(74); SHA1_S(SHA1_F4,74,SHA1_K4);
-  SHA1_D(75); SHA1_S(SHA1_F4,75,SHA1_K4);
-  SHA1_D(76); SHA1_S(SHA1_F4,76,SHA1_K4);
-  SHA1_D(77); SHA1_S(SHA1_F4,77,SHA1_K4);
-  SHA1_D(78); SHA1_S(SHA1_F4,78,SHA1_K4);
-  SHA1_D(79); SHA1_S(SHA1_F4,79,SHA1_K4);
+  // Rounds 40-59
+  w[8] = ROTLEFT((w[5] ^ w[0] ^ w[10] ^ w[8]), 1); SHA1_ROUND3(a,b,c,d,e,w[8],0x8F1BBCDCu);
+  w[9] = ROTLEFT((w[6] ^ w[1] ^ w[11] ^ w[9]), 1); SHA1_ROUND3(e,a,b,c,d,w[9],0x8F1BBCDCu);
+  w[10] = ROTLEFT((w[7] ^ w[2] ^ w[12] ^ w[10]), 1); SHA1_ROUND3(d,e,a,b,c,w[10],0x8F1BBCDCu);
+  w[11] = ROTLEFT((w[8] ^ w[3] ^ w[13] ^ w[11]), 1); SHA1_ROUND3(c,d,e,a,b,w[11],0x8F1BBCDCu);
+  w[12] = ROTLEFT((w[9] ^ w[4] ^ w[14] ^ w[12]), 1); SHA1_ROUND3(b,c,d,e,a,w[12],0x8F1BBCDCu);
+  w[13] = ROTLEFT((w[10] ^ w[5] ^ w[15] ^ w[13]), 1); SHA1_ROUND3(a,b,c,d,e,w[13],0x8F1BBCDCu);
+  w[14] = ROTLEFT((w[11] ^ w[6] ^ w[0] ^ w[14]), 1); SHA1_ROUND3(e,a,b,c,d,w[14],0x8F1BBCDCu);
+  w[15] = ROTLEFT((w[12] ^ w[7] ^ w[1] ^ w[15]), 1); SHA1_ROUND3(d,e,a,b,c,w[15],0x8F1BBCDCu);
+  w[0] = ROTLEFT((w[13] ^ w[8] ^ w[2] ^ w[0]), 1); SHA1_ROUND3(c,d,e,a,b,w[0],0x8F1BBCDCu);
+  w[1] = ROTLEFT((w[14] ^ w[9] ^ w[3] ^ w[1]), 1); SHA1_ROUND3(b,c,d,e,a,w[1],0x8F1BBCDCu);
+  w[2] = ROTLEFT((w[15] ^ w[10] ^ w[4] ^ w[2]), 1); SHA1_ROUND3(a,b,c,d,e,w[2],0x8F1BBCDCu);
+  w[3] = ROTLEFT((w[0] ^ w[11] ^ w[5] ^ w[3]), 1); SHA1_ROUND3(e,a,b,c,d,w[3],0x8F1BBCDCu);
+  w[4] = ROTLEFT((w[1] ^ w[12] ^ w[6] ^ w[4]), 1); SHA1_ROUND3(d,e,a,b,c,w[4],0x8F1BBCDCu);
+  w[5] = ROTLEFT((w[2] ^ w[13] ^ w[7] ^ w[5]), 1); SHA1_ROUND3(c,d,e,a,b,w[5],0x8F1BBCDCu);
+  w[6] = ROTLEFT((w[3] ^ w[14] ^ w[8] ^ w[6]), 1); SHA1_ROUND3(b,c,d,e,a,w[6],0x8F1BBCDCu);
+  w[7] = ROTLEFT((w[4] ^ w[15] ^ w[9] ^ w[7]), 1); SHA1_ROUND3(a,b,c,d,e,w[7],0x8F1BBCDCu);
+  w[8] = ROTLEFT((w[5] ^ w[0] ^ w[10] ^ w[8]), 1); SHA1_ROUND3(e,a,b,c,d,w[8],0x8F1BBCDCu);
+  w[9] = ROTLEFT((w[6] ^ w[1] ^ w[11] ^ w[9]), 1); SHA1_ROUND3(d,e,a,b,c,w[9],0x8F1BBCDCu);
+  w[10] = ROTLEFT((w[7] ^ w[2] ^ w[12] ^ w[10]), 1); SHA1_ROUND3(c,d,e,a,b,w[10],0x8F1BBCDCu);
+  w[11] = ROTLEFT((w[8] ^ w[3] ^ w[13] ^ w[11]), 1); SHA1_ROUND3(b,c,d,e,a,w[11],0x8F1BBCDCu);
   
-  // Store final hash (add to initial state)
+  // Rounds 60-79
+  w[12] = ROTLEFT((w[9] ^ w[4] ^ w[14] ^ w[12]), 1); SHA1_ROUND4(a,b,c,d,e,w[12],0xCA62C1D6u);
+  w[13] = ROTLEFT((w[10] ^ w[5] ^ w[15] ^ w[13]), 1); SHA1_ROUND4(e,a,b,c,d,w[13],0xCA62C1D6u);
+  w[14] = ROTLEFT((w[11] ^ w[6] ^ w[0] ^ w[14]), 1); SHA1_ROUND4(d,e,a,b,c,w[14],0xCA62C1D6u);
+  w[15] = ROTLEFT((w[12] ^ w[7] ^ w[1] ^ w[15]), 1); SHA1_ROUND4(c,d,e,a,b,w[15],0xCA62C1D6u);
+  w[0] = ROTLEFT((w[13] ^ w[8] ^ w[2] ^ w[0]), 1); SHA1_ROUND4(b,c,d,e,a,w[0],0xCA62C1D6u);
+  w[1] = ROTLEFT((w[14] ^ w[9] ^ w[3] ^ w[1]), 1); SHA1_ROUND4(a,b,c,d,e,w[1],0xCA62C1D6u);
+  w[2] = ROTLEFT((w[15] ^ w[10] ^ w[4] ^ w[2]), 1); SHA1_ROUND4(e,a,b,c,d,w[2],0xCA62C1D6u);
+  w[3] = ROTLEFT((w[0] ^ w[11] ^ w[5] ^ w[3]), 1); SHA1_ROUND4(d,e,a,b,c,w[3],0xCA62C1D6u);
+  w[4] = ROTLEFT((w[1] ^ w[12] ^ w[6] ^ w[4]), 1); SHA1_ROUND4(c,d,e,a,b,w[4],0xCA62C1D6u);
+  w[5] = ROTLEFT((w[2] ^ w[13] ^ w[7] ^ w[5]), 1); SHA1_ROUND4(b,c,d,e,a,w[5],0xCA62C1D6u);
+  w[6] = ROTLEFT((w[3] ^ w[14] ^ w[8] ^ w[6]), 1); SHA1_ROUND4(a,b,c,d,e,w[6],0xCA62C1D6u);
+  w[7] = ROTLEFT((w[4] ^ w[15] ^ w[9] ^ w[7]), 1); SHA1_ROUND4(e,a,b,c,d,w[7],0xCA62C1D6u);
+  w[8] = ROTLEFT((w[5] ^ w[0] ^ w[10] ^ w[8]), 1); SHA1_ROUND4(d,e,a,b,c,w[8],0xCA62C1D6u);
+  w[9] = ROTLEFT((w[6] ^ w[1] ^ w[11] ^ w[9]), 1); SHA1_ROUND4(c,d,e,a,b,w[9],0xCA62C1D6u);
+  w[10] = ROTLEFT((w[7] ^ w[2] ^ w[12] ^ w[10]), 1); SHA1_ROUND4(b,c,d,e,a,w[10],0xCA62C1D6u);
+  w[11] = ROTLEFT((w[8] ^ w[3] ^ w[13] ^ w[11]), 1); SHA1_ROUND4(a,b,c,d,e,w[11],0xCA62C1D6u);
+  w[12] = ROTLEFT((w[9] ^ w[4] ^ w[14] ^ w[12]), 1); SHA1_ROUND4(e,a,b,c,d,w[12],0xCA62C1D6u);
+  w[13] = ROTLEFT((w[10] ^ w[5] ^ w[15] ^ w[13]), 1); SHA1_ROUND4(d,e,a,b,c,w[13],0xCA62C1D6u);
+  w[14] = ROTLEFT((w[11] ^ w[6] ^ w[0] ^ w[14]), 1); SHA1_ROUND4(c,d,e,a,b,w[14],0xCA62C1D6u);
+  w[15] = ROTLEFT((w[12] ^ w[7] ^ w[1] ^ w[15]), 1); SHA1_ROUND4(b,c,d,e,a,w[15],0xCA62C1D6u);
+  
+  // Add to initial state
   hash[0] = a + 0x67452301u;
   hash[1] = b + 0xEFCDAB89u;
   hash[2] = c + 0x98BADCFEu;
@@ -160,53 +149,77 @@ inline void compute_sha1(unsigned int *coin_words, unsigned int *hash)
 }
 
 __kernel void search_coins_kernel(
-    unsigned long base_nonce,
-    unsigned long num_coins,
-    __global unsigned int *found_coins,
+    ulong base_nonce,
+    ulong num_coins,
+    __constant uint *static_words,
+    __global uint *found_coins,
     __global int *found_count,
     int max_found)
 {
-  unsigned long idx = get_global_id(0);
+  ulong idx = get_global_id(0);
   if(idx >= num_coins) return;
   
-  unsigned long nonce = base_nonce + idx;
+  ulong nonce = base_nonce + idx;
   
-  // Prepare coin data (14 x 32-bit words, 56 bytes)
-  unsigned int coin_words[14];
-  unsigned char *coin_bytes = (unsigned char *)coin_words;
+  // Stack-allocated coin data
+  uint coin_words[14];
+  uchar *coin_bytes = (uchar *)coin_words;
+
+  // Copy static template - unrolled for speed
+  coin_words[0] = static_words[0];
+  coin_words[1] = static_words[1];
+  coin_words[2] = static_words[2];
+  coin_words[3] = static_words[3];
+  coin_words[4] = static_words[4];
+  coin_words[5] = static_words[5];
+  coin_words[6] = static_words[6];
+  coin_words[7] = static_words[7];
+  coin_words[8] = static_words[8];
+  coin_words[9] = static_words[9];
+  coin_words[10] = static_words[10];
+  coin_words[11] = static_words[11];
+  coin_words[12] = static_words[12];
+  coin_words[13] = static_words[13];
   
-  // Fixed header "DETI coin 2 "
-  const char hdr[12] = {'D','E','T','I',' ','c','o','i','n',' ','2',' '};
-  for(int k = 0; k < 12; k++)
-    coin_bytes[k ^ 3] = (unsigned char)hdr[k];
+  // Fill nonce bytes using base-95 - optimized with local variable
+  ulong temp_nonce = nonce;
   
-  // Fill variable bytes 12..53 using nonce with printable ASCII (base-95)
-  unsigned long temp_nonce = nonce;
-  for(int j = 0; j < 42; j++)
+  #pragma unroll
+  for(int j = 0; j < 10; j++)
   {
-    unsigned char byte_val = (unsigned char)(32 + (temp_nonce % 95));
-    coin_bytes[(12 + j) ^ 3] = byte_val;
-    temp_nonce /= 95;
+    uchar digit = (uchar)(temp_nonce % 95UL);
+    coin_bytes[(44 + j) ^ 0x3] = digit + 32;
+    temp_nonce /= 95UL;
   }
   
-  // Newline and padding
-  coin_bytes[54 ^ 3] = (unsigned char)'\n';
-  coin_bytes[55 ^ 3] = (unsigned char)0x80;
-  
   // Compute SHA-1 hash
-  unsigned int hash[5];
-  compute_sha1(coin_words, hash);
+  uint hash[5];
+  compute_sha1_optimized(coin_words, hash);
   
-  // Check if valid DETI coin
-  if(hash[0] == 0xAAD20250u)
+  // Early exit if not a valid coin - this is the hot path
+  if(hash[0] != 0xAAD20250u)
+    return;
+  
+  // Found a valid coin - store it atomically
+  int pos = atomic_add(found_count, 1);
+  if(pos < max_found)
   {
-    // Atomically add to found list
-    int pos = atomic_add(found_count, 1);
-    if(pos < max_found)
-    {
-      // Copy coin data to results
-      for(int i = 0; i < 14; i++)
-        found_coins[pos * 14 + i] = coin_words[i];
-    }
+    __global uint *dest = &found_coins[pos * 14];
+    
+    // Unrolled copy for speed
+    dest[0] = coin_words[0];
+    dest[1] = coin_words[1];
+    dest[2] = coin_words[2];
+    dest[3] = coin_words[3];
+    dest[4] = coin_words[4];
+    dest[5] = coin_words[5];
+    dest[6] = coin_words[6];
+    dest[7] = coin_words[7];
+    dest[8] = coin_words[8];
+    dest[9] = coin_words[9];
+    dest[10] = coin_words[10];
+    dest[11] = coin_words[11];
+    dest[12] = coin_words[12];
+    dest[13] = coin_words[13];
   }
 }

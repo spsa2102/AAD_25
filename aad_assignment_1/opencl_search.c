@@ -69,6 +69,19 @@ static char* load_kernel_source(const char *filename, size_t *size)
   return source;
 }
 
+static unsigned long long decode_nonce_from_coin(const u08_t *coin_bytes)
+{
+  unsigned long long value = 0ULL;
+  for(int idx = 9; idx >= 0; --idx)
+  {
+    unsigned char ch = coin_bytes[(44 + idx) ^ 3];
+    if(ch < 32 || ch > 126)
+      return 0ULL;
+    value = value * 95ULL + (unsigned long long)(ch - 32);
+  }
+  return value;
+}
+
 int main(int argc, char **argv)
 {
   unsigned long long n_batches = 0ULL;
@@ -146,7 +159,34 @@ int main(int argc, char **argv)
   const size_t global_work_size = ((coins_per_batch + local_work_size - 1) / local_work_size) * local_work_size;
   const int max_found = 1024;
   
+  // Initialize nonce with random value
+  srand((unsigned int)time(NULL));
+  unsigned long long base_nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
+
+  // Build static coin template (header + persistent tail)
+  u32_t h_static_template[14];
+  for(int i = 0; i < 14; ++i)
+    h_static_template[i] = 0u;
+
+  u08_t *template_bytes = (u08_t *)h_static_template;
+  const char *hdr = "DETI coin 2 ";
+  for(int k = 0; k < 12; ++k)
+    template_bytes[k ^ 3] = (u08_t)hdr[k];
+
+  for(int j = 12; j < 44; ++j)
+    template_bytes[j ^ 3] = (u08_t)(32 + (rand() % 95));
+
+  for(int j = 44; j < 54; ++j)
+    template_bytes[j ^ 3] = (u08_t)' ';
+
+  template_bytes[54 ^ 3] = (u08_t)'\n';
+  template_bytes[55 ^ 3] = (u08_t)0x80;
+
   // Allocate device buffers
+  cl_mem d_static_template = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                            sizeof(h_static_template), h_static_template, &err);
+  check_opencl_error(err, "clCreateBuffer static_template");
+  
   cl_mem d_found_coins = clCreateBuffer(context, CL_MEM_WRITE_ONLY, 
                                         max_found * 14 * sizeof(u32_t), NULL, &err);
   check_opencl_error(err, "clCreateBuffer found_coins");
@@ -158,12 +198,10 @@ int main(int argc, char **argv)
   // Host buffers
   u32_t *h_found_coins = (u32_t*)malloc(max_found * 14 * sizeof(u32_t));
   int h_found_count;
-  
-  // Initialize nonce with random value
-  srand((unsigned int)time(NULL));
-  unsigned long long base_nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
   unsigned long long batches_done = 0ULL;
-  unsigned long long report_interval = 1000ULL;
+  unsigned long long total_iterations = 0ULL;
+  unsigned long long last_report_iter = 0ULL;
+  unsigned long long coins_found = 0ULL;
   double total_elapsed_time = 0.0;
   
   // Initialize time measurement
@@ -188,12 +226,14 @@ int main(int argc, char **argv)
     check_opencl_error(err, "clSetKernelArg 0");
     err = clSetKernelArg(kernel, 1, sizeof(cl_ulong), &cl_num_coins);
     check_opencl_error(err, "clSetKernelArg 1");
-    err = clSetKernelArg(kernel, 2, sizeof(cl_mem), &d_found_coins);
+    err = clSetKernelArg(kernel, 2, sizeof(cl_mem), &d_static_template);
     check_opencl_error(err, "clSetKernelArg 2");
-    err = clSetKernelArg(kernel, 3, sizeof(cl_mem), &d_found_count);
+    err = clSetKernelArg(kernel, 3, sizeof(cl_mem), &d_found_coins);
     check_opencl_error(err, "clSetKernelArg 3");
-    err = clSetKernelArg(kernel, 4, sizeof(int), &max_found);
+    err = clSetKernelArg(kernel, 4, sizeof(cl_mem), &d_found_count);
     check_opencl_error(err, "clSetKernelArg 4");
+    err = clSetKernelArg(kernel, 5, sizeof(int), &max_found);
+    check_opencl_error(err, "clSetKernelArg 5");
     
     // Launch kernel
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size, 
@@ -221,34 +261,23 @@ int main(int argc, char **argv)
         u32_t *coin = &h_found_coins[i * 14];
         u08_t *coin_bytes = (u08_t*)coin;
         
-        // Recompute hash to verify and count leading zeros
+        // Recompute hash to verify
         u32_t hash[5];
         sha1(coin, hash);
         
-        // Count leading zeros in hash
-        unsigned int zeros = 0u;
-        for(zeros = 0u; zeros < 128u; ++zeros)
-          if(((hash[1u + zeros / 32u] >> (31u - zeros % 32u)) & 1u) != 0u)
-            break;
-        if(zeros > 99u) zeros = 99u;
-        
-        printf("Found DETI coin (OpenCL): batch=%llu zeros=%u\n", batches_done, zeros);
-        printf("coin: \"");
+        unsigned long long decoded_nonce = decode_nonce_from_coin(coin_bytes);
+        printf("Found DETI coin: nonce=%llu\n", decoded_nonce);
+        printf("Coin Content: \"");
         for(int b = 0; b < 55; b++)
         {
           unsigned char ch = coin_bytes[b ^ 3];
-          if(ch >= 32 && ch <= 126) putchar((int)ch);
-          else putchar('?');
+          putchar((ch >= 32 && ch <= 126) ? (int)ch : '.');
         }
         printf("\"\n");
         
-        // Print SHA-1
-        printf("sha1: ");
-        for(int h = 0; h < 20; ++h) printf("%02x", ((unsigned char *)hash)[h ^ 3]);
-        printf("\n");
-        
         // Save coin
         save_coin(coin);
+        coins_found++;
       }
       
       save_coin(NULL); // Flush
@@ -257,25 +286,51 @@ int main(int argc, char **argv)
     // Advance
     base_nonce += coins_per_batch;
     batches_done++;
-    
-    if((batches_done % report_interval) == 0ULL)
+    total_iterations += coins_per_batch;
+
+    if((total_iterations & 0xFFFFFFULL) == 0ULL)
     {
       time_measurement();
-      double delta_time = wall_time_delta();
-      total_elapsed_time += delta_time;
+      double delta = wall_time_delta();
+      total_elapsed_time += delta;
+      double fps = (double)(total_iterations - last_report_iter) / delta;
+      last_report_iter = total_iterations;
       
-      double batches_per_second = (double)report_interval / delta_time;
-      double iterations_per_second = (double)(report_interval * coins_per_batch) / delta_time;
-      
-      fprintf(stderr, "batches=%llu nonce=%llu time=%.1f batch_per_sec=%.0f iter_per_sec=%.0f\n",
-              batches_done, base_nonce, total_elapsed_time, 
-              batches_per_second, iterations_per_second);
+      fprintf(stderr, "Speed: %.2f MH/s (%.2f M/min) | Nonce: %llx\n",
+              fps / 1000000.0,
+              (fps * 60.0) / 1000000.0,
+              (unsigned long long)base_nonce);
     }
   }
   
   // Cleanup
   save_coin(NULL);
+  time_measurement();
+  double final_time = wall_time_delta();
+  total_elapsed_time += final_time;
+
+  unsigned long long final_total_hashes = total_iterations;
+  double avg_hashes_per_sec = (total_elapsed_time > 0.0) ? (double)final_total_hashes / total_elapsed_time : 0.0;
+  double avg_hashes_per_min = avg_hashes_per_sec * 60.0;
+  double hashes_per_coin = (coins_found > 0ULL) ? (double)final_total_hashes / (double)coins_found : 0.0;
+
+  printf("\n");
+  printf("========================================\n");
+  printf("Final Summary (OpenCL):\n");
+  printf("========================================\n");
+  printf("Total coins found:    %llu\n", coins_found);
+  printf("Total hashes:         %llu\n", final_total_hashes);
+  printf("Total time:           %.2f seconds\n", total_elapsed_time);
+  printf("Average speed:        %.2f MH/s\n", avg_hashes_per_sec / 1000000.0);
+  printf("Average speed:        %.2f M/min\n", avg_hashes_per_min / 1000000.0);
+  if(coins_found > 0ULL)
+    printf("Hashes per coin:      %.2f\n", hashes_per_coin);
+  else
+    printf("Hashes per coin:      N/A (no coins found)\n");
+  printf("========================================\n");
+  
   free(h_found_coins);
+  clReleaseMemObject(d_static_template);
   clReleaseMemObject(d_found_coins);
   clReleaseMemObject(d_found_count);
   clReleaseKernel(kernel);

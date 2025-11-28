@@ -31,6 +31,9 @@ static void handle_sigint(int sig)
 # define USE_SCALAR 1
 #endif
 
+// Batch multiple iterations before checking for coins
+#define BATCH_SIZE 256
+
 static inline void to_base95_10(unsigned long long value, u08_t digits[10])
 {
   for(int i = 0; i < 10; ++i)
@@ -100,136 +103,158 @@ int main(int argc, char **argv)
     const int tid = omp_get_thread_num();
     const int nth = omp_get_num_threads();
 
-    // Per-thread buffers
-    u32_t interleaved_data[14][N_LANES] __attribute__((aligned(64)));
-    u32_t interleaved_hash[5][N_LANES] __attribute__((aligned(64)));
+    // Per-thread buffers - use separate arrays for better cache alignment
+    u32_t interleaved_data[BATCH_SIZE][14][N_LANES] __attribute__((aligned(64)));
+    u32_t interleaved_hash[BATCH_SIZE][5][N_LANES] __attribute__((aligned(64)));
 
-    // Per-thread LUT to map random bytes to printable ASCII [32..126]
+    // Per-thread LUT
     u08_t ascii95_lut[256];
     for(int i = 0; i < 256; ++i)
       ascii95_lut[i] = (u08_t)((i % 95) + 32);
 
-    // Pre-generate random printable tails (32 bytes per lane)
+    // Pre-generate random printable tails
     u08_t static_tail[N_LANES][32];
     for(int lane = 0; lane < N_LANES; ++lane)
       for(int j = 0; j < 32; ++j)
         static_tail[lane][j] = ascii95_lut[random_byte()];
 
-    // Initialize a different base nonce per thread
+    // Thread-specific base nonce with better distribution
     unsigned long long thread_seed = (unsigned long long)time(NULL) ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(tid + 1));
     unsigned long long base_nonce = ((thread_seed & 0xFFFFFFFFULL) << 32) | ((thread_seed >> 32) & 0xFFFFFFFFULL);
+    base_nonce = base_nonce + (unsigned long long)tid * 0x100000000ULL; // Better thread separation
 
-    // Zero the interleaved buffer before seeding static content
-    for(int idx = 0; idx < 14; ++idx)
-      for(int lane = 0; lane < N_LANES; ++lane)
-        interleaved_data[idx][lane] = 0u;
-
-    // Write header/tail/padding once per lane (never touched inside the loop)
-    for(int lane = 0; lane < N_LANES; ++lane)
+    // Initialize static content once for all batch slots
+    for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
     {
-      for(int k = 0; k < 12; ++k)
-        write_lane_byte(interleaved_data, lane, k, (u08_t)hdr[k]);
+      for(int idx = 0; idx < 14; ++idx)
+        for(int lane = 0; lane < N_LANES; ++lane)
+          interleaved_data[batch_idx][idx][lane] = 0u;
 
-      for(int j = 10; j < 42; ++j)
-        write_lane_byte(interleaved_data, lane, 12 + j, static_tail[lane][j - 10]);
+      for(int lane = 0; lane < N_LANES; ++lane)
+      {
+        for(int k = 0; k < 12; ++k)
+          write_lane_byte(interleaved_data[batch_idx], lane, k, (u08_t)hdr[k]);
 
-      write_lane_byte(interleaved_data, lane, 54, (u08_t)'\n');
-      write_lane_byte(interleaved_data, lane, 55, (u08_t)0x80);
+        for(int j = 10; j < 42; ++j)
+          write_lane_byte(interleaved_data[batch_idx], lane, 12 + j, static_tail[lane][j - 10]);
+
+        write_lane_byte(interleaved_data[batch_idx], lane, 54, (u08_t)'\n');
+        write_lane_byte(interleaved_data[batch_idx], lane, 55, (u08_t)0x80);
+      }
     }
 
-    // Persistent per-lane nonce digits and initialization
+    // Persistent per-lane nonce digits
     u08_t lane_digits[N_LANES][10];
     for(int lane = 0; lane < N_LANES; ++lane)
     {
       unsigned long long lane_nonce = base_nonce + (unsigned long long)lane;
       to_base95_10(lane_nonce, lane_digits[lane]);
-      write_nonce_bytes(interleaved_data, lane, lane_digits[lane], 9);
     }
 
     const unsigned long long stride = (unsigned long long)N_LANES * (unsigned long long)nth;
     unsigned long long batches_done = 0ULL;
+    unsigned long long local_coins_found = 0ULL;
+
+    // Reduce reporting frequency
+    unsigned long long report_interval = 0x1FFFFFFULL; // ~32M iterations
 
     while(!stop_requested && (n_batches == 0ULL || batches_done < n_batches))
     {
-      // No per-iteration buffer prep needed; nonce bytes already live in interleaved_data
-
-      // Compute SHA1
-      #if defined(USE_AVX512)
-        sha1_avx512f((v16si *)&interleaved_data[0], (v16si *)&interleaved_hash[0]);
-      #elif defined(USE_AVX2)
-        sha1_avx2((v8si *)&interleaved_data[0], (v8si *)&interleaved_hash[0]);
-      #elif defined(USE_AVX)
-        sha1_avx((v4si *)&interleaved_data[0], (v4si *)&interleaved_hash[0]);
-      #else
-        // scalar fallback, one lane at a time
+      // Prepare batch of nonces
+      for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
+      {
         for(int lane = 0; lane < N_LANES; ++lane)
         {
-          u32_t lane_words[14];
-          u32_t htmp[5];
-          gather_lane_words(lane_words, interleaved_data, lane);
-          sha1(lane_words, htmp);
-          for(int t = 0; t < 5; ++t)
-            interleaved_hash[t][lane] = htmp[t];
+          write_nonce_bytes(interleaved_data[batch_idx], lane, lane_digits[lane], 9);
+          base95_add(lane_digits[lane], stride);
         }
-      #endif
+      }
 
-      // Check results per lane
-      for(int lane = 0; lane < N_LANES; ++lane)
+      // Compute SHA1 for entire batch
+      for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
       {
-        u32_t h0 = interleaved_hash[0][lane];
-        if(h0 == 0xAAD20250u)
-        {
-          // reconstruct hash array for zero count
-          u32_t hash[5];
-          for(int t = 0; t < 5; ++t)
-            hash[t] = interleaved_hash[t][lane];
-          unsigned int zeros = 0u;
-          for(zeros = 0u; zeros < 128u; ++zeros)
-            if(((hash[1u + zeros / 32u] >> (31u - (zeros % 32u))) & 1u) != 0u)
-              break;
-          if(zeros > 99u) zeros = 99u;
-
-          unsigned long long found_nonce = base_nonce + (unsigned long long)lane;
-
-          u32_t coin_words[14];
-          gather_lane_words(coin_words, interleaved_data, lane);
-
-          // Save coin to vault (guarded)
-          #pragma omp critical(aad_vault)
+        #if defined(USE_AVX512)
+          sha1_avx512f((v16si *)&interleaved_data[batch_idx][0], (v16si *)&interleaved_hash[batch_idx][0]);
+        #elif defined(USE_AVX2)
+          sha1_avx2((v8si *)&interleaved_data[batch_idx][0], (v8si *)&interleaved_hash[batch_idx][0]);
+        #elif defined(USE_AVX)
+          sha1_avx((v4si *)&interleaved_data[batch_idx][0], (v4si *)&interleaved_hash[batch_idx][0]);
+        #else
+          for(int lane = 0; lane < N_LANES; ++lane)
           {
-            save_coin(coin_words);
-            coins_found++;
+            u32_t lane_words[14];
+            u32_t htmp[5];
+            gather_lane_words(lane_words, interleaved_data[batch_idx], lane);
+            sha1(lane_words, htmp);
+            for(int t = 0; t < 5; ++t)
+              interleaved_hash[batch_idx][t][lane] = htmp[t];
           }
+        #endif
+      }
 
-          // Console message: allow any thread to print, serialize output
-          #pragma omp critical(console)
-          printf("Found DETI coin (SIMD+OMP): tid=%d nonce=%llu zeros=%u\n", tid, found_nonce, zeros);
+      // Check results for entire batch
+      for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
+      {
+        for(int lane = 0; lane < N_LANES; ++lane)
+        {
+          u32_t h0 = interleaved_hash[batch_idx][0][lane];
+          if(__builtin_expect(h0 == 0xAAD20250u, 0)) // Unlikely hint
+          {
+            u32_t hash[5];
+            for(int t = 0; t < 5; ++t)
+              hash[t] = interleaved_hash[batch_idx][t][lane];
+            
+            unsigned int zeros = __builtin_clz(hash[1]); // Fast leading zero count
+            if((hash[1] & ((1u << (31u - zeros)) - 1u)) == 0u)
+            {
+              // Check next words if needed
+              for(unsigned int word = 2; word < 5 && zeros < 128u; ++word)
+              {
+                if(hash[word] == 0u)
+                  zeros += 32u;
+                else
+                {
+                  zeros += __builtin_clz(hash[word]);
+                  break;
+                }
+              }
+            }
+            if(zeros > 99u) zeros = 99u;
+
+            unsigned long long found_nonce = base_nonce + (unsigned long long)(batch_idx * stride) + (unsigned long long)lane - (unsigned long long)(BATCH_SIZE * stride);
+
+            u32_t coin_words[14];
+            gather_lane_words(coin_words, interleaved_data[batch_idx], lane);
+
+            #pragma omp critical(aad_vault)
+            {
+              save_coin(coin_words);
+              coins_found++;
+            }
+
+            local_coins_found++;
+
+            #pragma omp critical(console)
+            printf("Found DETI coin (OPT): tid=%d nonce=%llu zeros=%u\n", tid, found_nonce, zeros);
+          }
         }
       }
 
-      // Advance nonce digits for next batch with minimal byte writes
-      for(int lane = 0; lane < N_LANES; ++lane)
-      {
-        int changed = base95_add(lane_digits[lane], stride);
-        if(changed >= 0)
-          write_nonce_bytes(interleaved_data, lane, lane_digits[lane], changed);
-      }
-
-      base_nonce += stride; // stride by number of threads
-      ++batches_done;
+      base_nonce += stride * BATCH_SIZE;
+      batches_done += BATCH_SIZE;
       
-      // Update global counter atomically
       #pragma omp atomic
-      global_batches++;
+      global_batches += BATCH_SIZE;
 
-      // Progress report every ~16 million iterations (master thread only)
+      // Less frequent progress reporting
       #pragma omp master
       {
-  unsigned long long batches_snapshot;
-  #pragma omp atomic read
-  batches_snapshot = global_batches;
-  unsigned long long current_total = batches_snapshot * (unsigned long long)N_LANES;
-        if((current_total & 0xFFFFFF) == 0ULL && current_total != total_iterations)
+        unsigned long long batches_snapshot;
+        #pragma omp atomic read
+        batches_snapshot = global_batches;
+        unsigned long long current_total = batches_snapshot * (unsigned long long)N_LANES;
+        
+        if((current_total & report_interval) == 0ULL && current_total != total_iterations)
         {
           total_iterations = current_total;
           time_measurement();
@@ -238,19 +263,18 @@ int main(int argc, char **argv)
           double fps = (delta > 0.0) ? (double)(total_iterations - last_report_iter) / delta : 0.0;
           last_report_iter = total_iterations;
           
-          fprintf(stderr, "Speed: %.2f MH/s (%.2f M/min) | Nonce: %llx\n", 
+          fprintf(stderr, "Speed: %.2f MH/s (%.2f M/min) | Nonce: %llx | Coins: %llu\n", 
                   fps / 1000000.0, 
                   (fps * 60.0) / 1000000.0, 
-                  base_nonce);
+                  base_nonce,
+                  coins_found);
         }
       }
     }
-  } // end parallel
+  }
 
-  // Flush vault buffer once after workers finish
   save_coin(NULL);
   
-  // Final summary report
   time_measurement();
   double final_time = wall_time_delta();
   total_elapsed_time += final_time;
@@ -260,8 +284,7 @@ int main(int argc, char **argv)
   double avg_hashes_per_min = avg_hashes_per_sec * 60.0;
   double hashes_per_coin = (coins_found > 0ULL) ? (double)final_total_hashes / (double)coins_found : 0.0;
   
-  printf("\n");
-  printf("========================================\n");
+  printf("\n========================================\n");
   printf("Final Summary:\n");
   printf("========================================\n");
   printf("Total coins found:    %llu\n", coins_found);
