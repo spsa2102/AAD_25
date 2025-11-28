@@ -29,18 +29,23 @@ int main(int argc, char **argv)
   
   u32_t hash[5];
   unsigned long long nonce = 0ULL;
-  
-  // Tabela para conversão rápida Hexadecimal
-  static const char hex_map[] = "0123456789abcdef";
 
   for(int i=0; i<16; i++) coin.i[i] = 0;
+
+  const char *static_override = NULL;
+  for(int argi = 1; argi < argc; ++argi)
+  {
+    if(strcmp(argv[argi], "-s") == 0 && (argi + 1) < argc)
+    {
+      static_override = argv[++argi];
+    }
+  }
 
   (void)signal(SIGINT, handle_sigint);
 
   srand((unsigned int)time(NULL));
   
-  // Inicializar nonce com valor aleatório para variar o espaço de busca
-  nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
+  nonce = 0;
   
   // Cabeçalho fixo da DETI coin
   const char *hdr = "DETI coin 2 ";
@@ -48,8 +53,28 @@ int main(int argc, char **argv)
     coin.c[k ^ 3] = (u08_t)hdr[k];
 
   // Espaço estático aleatório
-  for(int k = 12; k < 40; k++) {
-      coin.c[k ^ 3] = (u08_t)(32 + (rand() % 95));
+  const int static_start = 12;
+  const int static_end = 53;
+  const int static_len = static_end - static_start + 1;
+  int override_len = (static_override != NULL) ? (int)strlen(static_override) : 0;
+  if(override_len > static_len)
+    override_len = static_len;
+
+  for(int offset = 0; offset < static_len; ++offset)
+  {
+    int pos = static_start + offset;
+    unsigned char value;
+    if(offset < override_len)
+    {
+      value = (unsigned char)static_override[offset];
+      if(value < 32 || value > 126)
+        value = (unsigned char)' ';
+    }
+    else
+    {
+      value = (unsigned char)(32 + (rand() % 95));
+    }
+    coin.c[pos ^ 3] = (u08_t)value;
   }
 
   // Byte 54 e 55
@@ -69,23 +94,20 @@ int main(int argc, char **argv)
   while(!stop_requested)
   {
     unsigned long long temp_n = nonce;
-    
-    // Preenche de trás para a frente (53 -> 40)
-    for (int pos = 53; pos >= 40; pos--) {
-        coin.c[pos ^ 3] = (u08_t)hex_map[temp_n & 0xF];
-        
-        // Shift de 4 bits (equivalente a divisão por 16)
-        temp_n >>= 4; 
-        
-        // Se o número acabou, preenche o resto com espaços para limpar dígitos antigos
-        if (temp_n == 0 && pos > 40) {
-             while(pos > 40) { 
-                 pos--; 
-                 coin.c[pos ^ 3] = ' '; 
-             }
-             break;
-        }
-    }
+    coin.c[53 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[52 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[51 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[50 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[49 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[48 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[47 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[46 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[45 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[44 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[43 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[42 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[41 ^ 3] = (u08_t)(32 + (temp_n & 0x1F)); temp_n >>= 5;
+    coin.c[40 ^ 3] = (u08_t)(32 + (temp_n & 0x1F));
 
     sha1(&coin.i[0], hash);
 
@@ -107,7 +129,6 @@ int main(int argc, char **argv)
     iter++;
     nonce++;
 
-    // Reporta a cada ~16 milhões de tentativas
     if((iter & 0xFFFFFF) == 0) 
     {
       time_measurement();
@@ -126,7 +147,6 @@ int main(int argc, char **argv)
   // Guardar moedas pendentes antes de sair
   save_coin(NULL);
 
-  // Report
   time_measurement();
   double final_time = wall_time_delta();
   total_elapsed_time += final_time;
