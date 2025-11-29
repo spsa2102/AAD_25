@@ -29,7 +29,7 @@ static inline void write_lane_byte(u32_t data[14][N_LANES], int lane, int offset
   word_bytes[(offset & 3) ^ 3] = value;
 }
 
-// function to increment a base-95 odometer; returns highest digit updated
+// função para adicionar um valor k a um número representado em base 95
 static inline int base95_add(u08_t digits[11], unsigned int k)
 {
   unsigned int carry = k;
@@ -50,7 +50,7 @@ static inline int base95_add(u08_t digits[11], unsigned int k)
   return last_changed;
 }
 
-// convert a 64-bit value into 11 base-95 digits
+// converte um valor u64_t para 11 dígitos em base 95
 static inline void to_base95_11(u64_t x, u08_t out_digits[11])
 {
   for(int i = 0; i < 11; ++i)
@@ -62,19 +62,19 @@ static inline void to_base95_11(u64_t x, u08_t out_digits[11])
 
 static inline void apply_nonce_digits(u32_t data[14][N_LANES], int lane, const u08_t digits[11])
 {
-  for(int d = 0; d < 4; ++d)
-    write_lane_byte(data, lane, 40 + d, (u08_t)(digits[d] + 32u));
-  for(int d = 4; d < 8; ++d)
-    write_lane_byte(data, lane, 44 + (d - 4), (u08_t)(digits[d] + 32u));
-
   u08_t ascii8 = (u08_t)(digits[8] + 32u);
   u08_t ascii9 = (u08_t)(digits[9] + 32u);
-  write_lane_byte(data, lane, 48, ascii8);
-  write_lane_byte(data, lane, 49, ascii9);
-  write_lane_byte(data, lane, 50, ascii8);
-  write_lane_byte(data, lane, 51, ascii9);
-  write_lane_byte(data, lane, 52, ascii9);
-  write_lane_byte(data, lane, 53, ascii8);
+  write_lane_byte(data, lane, 40, ascii8);
+  write_lane_byte(data, lane, 41, ascii9);
+  write_lane_byte(data, lane, 42, ascii8);
+  write_lane_byte(data, lane, 43, ascii9);
+  write_lane_byte(data, lane, 44, ascii9);
+  write_lane_byte(data, lane, 45, ascii8);
+  
+  for(int d = 7; d >= 4; --d)
+    write_lane_byte(data, lane, 46 + (7 - d), (u08_t)(digits[d] + 32u));
+  for(int d = 3; d >= 0; --d)
+    write_lane_byte(data, lane, 50 + (3 - d), (u08_t)(digits[d] + 32u));
 }
 
 static inline void refresh_nonce_digits(u32_t data[14][N_LANES], int lane, const u08_t digits[11], int max_digit)
@@ -82,39 +82,51 @@ static inline void refresh_nonce_digits(u32_t data[14][N_LANES], int lane, const
   if(max_digit < 0) return;
   if(max_digit > 9) max_digit = 9;
 
-  if(max_digit >= 0) write_lane_byte(data, lane, 40, (u08_t)(digits[0] + 32u));
-  if(max_digit >= 1) write_lane_byte(data, lane, 41, (u08_t)(digits[1] + 32u));
-  if(max_digit >= 2) write_lane_byte(data, lane, 42, (u08_t)(digits[2] + 32u));
-  if(max_digit >= 3) write_lane_byte(data, lane, 43, (u08_t)(digits[3] + 32u));
-  if(max_digit >= 4) write_lane_byte(data, lane, 44, (u08_t)(digits[4] + 32u));
-  if(max_digit >= 5) write_lane_byte(data, lane, 45, (u08_t)(digits[5] + 32u));
-  if(max_digit >= 6) write_lane_byte(data, lane, 46, (u08_t)(digits[6] + 32u));
-  if(max_digit >= 7) write_lane_byte(data, lane, 47, (u08_t)(digits[7] + 32u));
+  // Escreve os dígitos atualizados
+  if(max_digit >= 0) write_lane_byte(data, lane, 53, (u08_t)(digits[0] + 32u));
+  if(max_digit >= 1) write_lane_byte(data, lane, 52, (u08_t)(digits[1] + 32u));
+  if(max_digit >= 2) write_lane_byte(data, lane, 51, (u08_t)(digits[2] + 32u));
+  if(max_digit >= 3) write_lane_byte(data, lane, 50, (u08_t)(digits[3] + 32u));
+  if(max_digit >= 4) write_lane_byte(data, lane, 49, (u08_t)(digits[4] + 32u));
+  if(max_digit >= 5) write_lane_byte(data, lane, 48, (u08_t)(digits[5] + 32u));
+  if(max_digit >= 6) write_lane_byte(data, lane, 47, (u08_t)(digits[6] + 32u));
+  if(max_digit >= 7) write_lane_byte(data, lane, 46, (u08_t)(digits[7] + 32u));
   if(max_digit >= 8)
   {
     u08_t ascii8 = (u08_t)(digits[8] + 32u);
-    write_lane_byte(data, lane, 48, ascii8);
-    write_lane_byte(data, lane, 50, ascii8);
-    write_lane_byte(data, lane, 53, ascii8);
+    write_lane_byte(data, lane, 40, ascii8);
+    write_lane_byte(data, lane, 42, ascii8);
+    write_lane_byte(data, lane, 45, ascii8);
   }
   if(max_digit >= 9)
   {
     u08_t ascii9 = (u08_t)(digits[9] + 32u);
-    write_lane_byte(data, lane, 49, ascii9);
-    write_lane_byte(data, lane, 51, ascii9);
-    write_lane_byte(data, lane, 52, ascii9);
+    write_lane_byte(data, lane, 41, ascii9);
+    write_lane_byte(data, lane, 43, ascii9);
+    write_lane_byte(data, lane, 44, ascii9);
   }
 }
 
 int main(int argc,char **argv)
 {
   unsigned long long n_batches = 0ULL;
-  if(argc > 1)
-    n_batches = strtoull(argv[1],NULL,10);
+  const char *static_override = NULL;
+  
+  for(int argi = 1; argi < argc; ++argi)
+  {
+    if(strcmp(argv[argi], "-s") == 0 && (argi + 1) < argc)
+    {
+      static_override = argv[++argi];
+    }
+    else if(n_batches == 0ULL)
+    {
+      n_batches = strtoull(argv[argi], NULL, 10);
+    }
+  }
 
   (void)signal(SIGINT,handle_sigint);
 
-  // aligned data structures
+  // estrutura de dados para processamento SIMD
   u32_t interleaved_data[14][N_LANES] __attribute__((aligned(64)));
   u32_t interleaved_hash[5][N_LANES] __attribute__((aligned(64)));
   
@@ -129,14 +141,14 @@ int main(int argc,char **argv)
   base_nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
   time_measurement();
 
-  // pre-inicialize all constants
+  // pré-inicializa todas as constantes
   const u32_t fixed_header[3] = {
-    0x44455449u, // first 4 bits: "DETI"
-    0x20636f69u, // next 4 bits: " coi"
-    0x6e203220u  // last 4 bits: "n 2 "
+    0x44455449u, // Primeiros 4 bits: "DETI"
+    0x20636f69u, // Próximos 4 bits: " coi"
+    0x6e203220u  // Últimos 4 bits: "n 2 "
   };
   
-  // initialize all lanes with fixed data
+  // inicializa todas as lanes com dados fixos
   for(int lane = 0; lane < N_LANES; ++lane)
   {
     for(int idx = 0; idx < 14; ++idx)
@@ -148,13 +160,26 @@ int main(int argc,char **argv)
     write_lane_byte(interleaved_data, lane, 55, (u08_t)0x80u);
   }
 
-  // pre-generate static padding pattern (bytes 12-39)
-  // add a small random offset so padding differs across program runs
+  // pré-gerar bytes estáticos (bytes 12..39)
   u08_t static_bytes[28];
+  int override_len = (static_override != NULL) ? (int)strlen(static_override) : 0;
+  if(override_len > 28)
+    override_len = 28;
+  
   for(int i = 0; i < 28; ++i)
-    static_bytes[i] = (u08_t)(32 + (random_byte() % 95));
+  {
+    if(i < override_len)
+    {
+      unsigned char ch = (unsigned char)static_override[i];
+      static_bytes[i] = (ch >= 32 && ch <= 126) ? (u08_t)ch : (u08_t)' ';
+    }
+    else
+    {
+      static_bytes[i] = (u08_t)(32 + (random_byte() % 95));
+    }
+  }
 
-  // fill static padding for all lanes once (bytes 12..39)
+  // preencher os bytes estáticos em todas as lanes (bytes 12..39)
   for(int lane = 0; lane < N_LANES; ++lane)
     for(int j = 0; j < 28; ++j)
       write_lane_byte(interleaved_data, lane, 12 + j, static_bytes[j]);
@@ -172,7 +197,6 @@ int main(int argc,char **argv)
     sha1_avx2((v8si *)&interleaved_data[0],(v8si *)&interleaved_hash[0]);
 #endif
 
-    // check results
     for(int lane = 0; lane < N_LANES; ++lane)
     {
       if(interleaved_hash[0][lane] == 0xAAD20250u)
@@ -190,7 +214,7 @@ int main(int argc,char **argv)
         unsigned long long found_nonce = base_nonce + (unsigned long long)lane;
         printf("Found DETI coin (SIMD): nonce=%llu zeros=%u\n",found_nonce,zeros);
         
-        // reconstruct coin for printing
+        // reconstruir a moeda
         u32_t coin_data[14];
         for(int i = 0; i < 14; ++i)
           coin_data[i] = interleaved_data[i][lane];
