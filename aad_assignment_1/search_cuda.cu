@@ -64,7 +64,7 @@ __device__ __forceinline__ void write_nonce_bytes(u08_t *coin_bytes, const u08_t
 {
   #pragma unroll
   for(int j = 0; j < 10; ++j)
-    coin_bytes[(40 + j) ^ 3] = (u08_t)(digits[j] + 32u);
+    coin_bytes[(44 + j) ^ 3] = (u08_t)(digits[j] + 32u);
 }
 
 static volatile sig_atomic_t stop_requested = 0;
@@ -84,7 +84,7 @@ static void nonce_to_base95_host(unsigned long long value, u08_t digits[10])
   }
 }
 
-// Kernel for coin search
+// Kernel para procurar DETI coins
 __global__ void search_coins_kernel(
   unsigned long long num_coins,
   u32_t *found_coins,
@@ -111,10 +111,10 @@ __global__ void search_coins_kernel(
     for(int i = 0; i < 16; i++)
       coin_words[i] = c_static_words[i];
 
-    // Write nonce bytes from odometer digits
+    // Escreve os bytes do nonce
     write_nonce_bytes(coin_bytes, digits);
   
-    // Compute SHA1 hash for this coin
+    // Calcula o hash SHA-1 do coin
     u32_t hash[5];
 # define T            u32_t
 # define C(c)         (c)
@@ -128,7 +128,7 @@ __global__ void search_coins_kernel(
 # undef DATA
 # undef HASH
   
-    // Check if valid DETI coin
+    // Verifica se a DETI coin é valida
     if(hash[0] == 0xAAD20250u)
     {
       int pos = atomicAdd(found_count, 1);
@@ -146,8 +146,19 @@ __global__ void search_coins_kernel(
 int main(int argc, char **argv)
 {
   unsigned long long total_coins = 0ULL;
-  if(argc > 1)
-    total_coins = strtoull(argv[1], NULL, 10);
+  char *static_string = NULL;
+  
+  for(int i = 1; i < argc; i++)
+  {
+    if(strcmp(argv[i], "-s") == 0 && i + 1 < argc)
+    {
+      static_string = argv[++i];
+    }
+    else if(argv[i][0] != '-')
+    {
+      total_coins = strtoull(argv[i], NULL, 10);
+    }
+  }
   
   (void)signal(SIGINT, handle_sigint);
   
@@ -164,12 +175,12 @@ int main(int argc, char **argv)
 
   srand((unsigned int)time(NULL));
   
-  // Initialize nonce with random value
+  // Inicializa nonce com um valor aleatorio
   base_nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
   
   time_measurement();
   
-  // Build static coin template (header + random padding)
+  // Prepara template da coin
   u32_t h_coin_template[16];
   for(int i = 0; i < 16; i++)
     h_coin_template[i] = 0;
@@ -179,8 +190,19 @@ int main(int argc, char **argv)
   for(int k = 0; k < 12; k++)
     template_bytes[k ^ 3] = (u08_t)hdr[k];
 
-  for(int k = 12; k < 54; k++)
+  // Gerar bytes aleatorios para o template
+  for(int k = 12; k < 44; k++)
     template_bytes[k ^ 3] = (u08_t)(32 + (rand() % 95));
+
+  // Escrever string estática, se fornecida
+  if(static_string != NULL)
+  {
+    int len = strlen(static_string);
+    
+    // Sobrescrever posições 12-43 (antes do nonce)
+    for(int k = 12; k < 44 && k - 12 < len; k++)
+      template_bytes[k ^ 3] = (u08_t)static_string[k - 12];
+  }
 
   template_bytes[54 ^ 3] = (u08_t)'\n';
   template_bytes[55 ^ 3] = (u08_t)0x80;
@@ -188,13 +210,12 @@ int main(int argc, char **argv)
 
   cudaMemcpyToSymbol(c_static_words, h_coin_template, sizeof(h_coin_template), 0, cudaMemcpyHostToDevice);
   
-  // Allocate device memory
+  // Aloca memória no dispositivo
   u32_t *d_found_coins;
   int *d_found_count;
   cudaMalloc(&d_found_coins, max_found_per_batch * 16 * sizeof(u32_t));
   cudaMalloc(&d_found_count, sizeof(int));
-  
-  // Host memory for results
+
   u32_t *h_found_coins = (u32_t*)malloc(max_found_per_batch * 16 * sizeof(u32_t));
   int h_found_count = 0;
   
@@ -202,10 +223,8 @@ int main(int argc, char **argv)
   printf("Threads per block: %d\n", threads_per_block);
   printf("Coins per batch: %llu\n", coins_per_batch);
   
-  // Search loop
   while((total_coins == 0ULL || base_nonce < total_coins) && !stop_requested)
   {
-    // Reset found counter
     h_found_count = 0;
     cudaMemcpy(d_found_count, &h_found_count, sizeof(int), cudaMemcpyHostToDevice);
 
@@ -218,10 +237,9 @@ int main(int argc, char **argv)
     search_coins_kernel<<<num_blocks, threads_per_block>>>(
       coins_per_batch, d_found_coins, d_found_count, max_found_per_batch);
     
-    // Wait for kernel to complete
+    // Espera pela conclusão
     cudaDeviceSynchronize();
     
-    // Check for errors
     cudaError_t err = cudaGetLastError();
     if(err != cudaSuccess)
     {
@@ -229,7 +247,6 @@ int main(int argc, char **argv)
       break;
     }
     
-    // Copy results back
     cudaMemcpy(&h_found_count, d_found_count, sizeof(int), cudaMemcpyDeviceToHost);
     
     if(h_found_count > 0)
@@ -238,11 +255,10 @@ int main(int argc, char **argv)
       cudaMemcpy(h_found_coins, d_found_coins, 
                  coins_to_process * 16 * sizeof(u32_t), cudaMemcpyDeviceToHost);
       
-      // Process found coins
+      // Processar moedas encontradas
       for(int i = 0; i < coins_to_process; i++)
       {
         printf("Found DETI coin! \n");
-        // Save coin to vault
         save_coin_wrapper(&h_found_coins[i * 16]);
       }
 
@@ -253,8 +269,7 @@ int main(int argc, char **argv)
     batches_done++;
     total_iterations += coins_per_batch;
     
-    // Progress report every ~16 million iterations
-    if((total_iterations & 0xFFFFFF00000000ULL) != ((total_iterations - coins_per_batch) & 0xFFFFFF00000000ULL))
+    if((total_iterations & 0xFFFFFB00000000ULL) != ((total_iterations - coins_per_batch) & 0xFFFFFB00000000ULL))
     {
       time_measurement();
       double delta = wall_time_delta();
@@ -269,12 +284,10 @@ int main(int argc, char **argv)
     }
   }
   
-  // Cleanup
   cudaFree(d_found_coins);
   cudaFree(d_found_count);
   free(h_found_coins);
   
-  // Flush vault buffer to disk
   save_coin_flush();
 
   time_measurement();
