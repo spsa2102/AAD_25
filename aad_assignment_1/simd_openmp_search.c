@@ -159,12 +159,25 @@ int main(int argc, char **argv)
 
       for(int lane = 0; lane < N_LANES; ++lane)
       {
+        // Write header at bytes 0-11
         for(int k = 0; k < 12; ++k)
           write_lane_byte(interleaved_data[batch_idx], lane, k, (u08_t)hdr[k]);
 
-        for(int j = 10; j < 42; ++j)
-          write_lane_byte(interleaved_data[batch_idx], lane, 12 + j, static_tail[lane][j - 10]);
+        // Write static bytes and custom string at bytes 12-43
+        if(custom_string != NULL)
+        {
+          for(int j = 0; j < custom_string_len && j < 32; ++j)
+            write_lane_byte(interleaved_data[batch_idx], lane, 12 + j, (u08_t)custom_string[j]);
+          for(int j = custom_string_len; j < 32; ++j)
+            write_lane_byte(interleaved_data[batch_idx], lane, 12 + j, static_tail[lane][j]);
+        }
+        else
+        {
+          for(int j = 0; j < 32; ++j)
+            write_lane_byte(interleaved_data[batch_idx], lane, 12 + j, static_tail[lane][j]);
+        }
 
+        // Newline at 54, padding at 55
         write_lane_byte(interleaved_data[batch_idx], lane, 54, (u08_t)'\n');
         write_lane_byte(interleaved_data[batch_idx], lane, 55, (u08_t)0x80);
       }
@@ -192,7 +205,9 @@ int main(int argc, char **argv)
       {
         for(int lane = 0; lane < N_LANES; ++lane)
         {
-          write_nonce_bytes(interleaved_data[batch_idx], lane, lane_digits[lane], 9);
+          // Write nonce at bytes 44-53
+          for(int j = 0; j < 10; ++j)
+            write_lane_byte(interleaved_data[batch_idx], lane, 44 + j, (u08_t)(lane_digits[lane][j] + 32u));
           base95_add(lane_digits[lane], stride);
         }
       }
