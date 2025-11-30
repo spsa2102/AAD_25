@@ -1,21 +1,10 @@
-//
-// OpenCL DETI coin search
-// Arquiteturas de Alto Desempenho 2025/2026
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
 #include <time.h>
-
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
 #define CL_TARGET_OPENCL_VERSION 120
 #include <CL/cl.h>
-#endif
-
 #include "aad_data_types.h"
 #include "aad_utilities.h"
 #include "aad_sha1_cpu.h"
@@ -29,7 +18,7 @@ static void handle_sigint(int sig)
   stop_requested = 1;
 }
 
-// Error checking helper
+// função para verificar erros OpenCL
 static void check_opencl_error(cl_int err, const char *operation)
 {
   if(err != CL_SUCCESS)
@@ -39,7 +28,7 @@ static void check_opencl_error(cl_int err, const char *operation)
   }
 }
 
-// Load kernel source from file
+// Carregar código fonte do kernel OpenCL
 static char* load_kernel_source(const char *filename, size_t *size)
 {
   FILE *fp = fopen(filename, "r");
@@ -85,8 +74,29 @@ static unsigned long long decode_nonce_from_coin(const u08_t *coin_bytes)
 int main(int argc, char **argv)
 {
   unsigned long long n_batches = 0ULL;
-  if(argc > 1)
-    n_batches = strtoull(argv[1], NULL, 10);
+  const char *custom_string = NULL;
+
+  // Parse arguments
+  for (int i = 1; i < argc; i++)
+  {
+    if (strcmp(argv[i], "-s") == 0)
+    {
+      if (i + 1 < argc)
+      {
+        custom_string = argv[++i];
+      }
+      else
+      {
+        fprintf(stderr, "Error: -s requires a string argument.\n");
+        return 1;
+      }
+    }
+    else
+    {
+      // Assume it is n_batches
+      n_batches = strtoull(argv[i], NULL, 10);
+    }
+  }
   
   (void)signal(SIGINT, handle_sigint);
   
@@ -99,11 +109,10 @@ int main(int argc, char **argv)
   cl_kernel kernel;
   cl_int err;
   
-  // Get platform
   err = clGetPlatformIDs(1, &platform, NULL);
   check_opencl_error(err, "clGetPlatformIDs");
   
-  // Get device (prefer GPU, fallback to CPU)
+
   err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
   if(err != CL_SUCCESS)
   {
@@ -112,16 +121,13 @@ int main(int argc, char **argv)
     check_opencl_error(err, "clGetDeviceIDs");
   }
   
-  // Print device info
   char device_name[128];
   clGetDeviceInfo(device, CL_DEVICE_NAME, sizeof(device_name), device_name, NULL);
   fprintf(stderr, "Using OpenCL device: %s\n", device_name);
   
-  // Create context
   context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
   check_opencl_error(err, "clCreateContext");
   
-  // Create command queue
 #ifdef CL_VERSION_2_0
   queue = clCreateCommandQueueWithProperties(context, device, NULL, &err);
 #else
@@ -129,7 +135,6 @@ int main(int argc, char **argv)
 #endif
   check_opencl_error(err, "clCreateCommandQueue");
   
-  // Load and compile kernel
   size_t kernel_size;
   char *kernel_source = load_kernel_source("opencl_search_kernel.cl", &kernel_size);
   
@@ -153,23 +158,21 @@ int main(int argc, char **argv)
   
   free(kernel_source);
   
-  // Configuration
   const size_t local_work_size = 256;
-  const size_t coins_per_batch = 1048576; // 1M coins per batch
+  const size_t coins_per_batch = 1048576;
   const size_t global_work_size = ((coins_per_batch + local_work_size - 1) / local_work_size) * local_work_size;
   const int max_found = 1024;
   
-  // Initialize nonce with random value
   srand((unsigned int)time(NULL));
   unsigned long long base_nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
 
-  // Build static coin template (header + persistent tail)
   u32_t h_static_template[14];
   for(int i = 0; i < 14; ++i)
     h_static_template[i] = 0u;
 
   u08_t *template_bytes = (u08_t *)h_static_template;
   const char *hdr = "DETI coin 2 ";
+  
   for(int k = 0; k < 12; ++k)
     template_bytes[k ^ 3] = (u08_t)hdr[k];
 
@@ -179,10 +182,23 @@ int main(int argc, char **argv)
   for(int j = 44; j < 54; ++j)
     template_bytes[j ^ 3] = (u08_t)' ';
 
+  if(custom_string != NULL)
+  {
+      size_t len = strlen(custom_string);
+      if (len > 42) len = 42; 
+      
+      for(size_t j = 0; j < len; ++j)
+      {
+          template_bytes[(12 + j) ^ 3] = (u08_t)custom_string[j];
+      }
+  }
+
   template_bytes[54 ^ 3] = (u08_t)'\n';
   template_bytes[55 ^ 3] = (u08_t)0x80;
 
-  // Allocate device buffers
+  if (custom_string) fprintf(stderr, "Custom string set: \"%s\"\n", custom_string);
+
+  // Alocar buffers
   cl_mem d_static_template = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                             sizeof(h_static_template), h_static_template, &err);
   check_opencl_error(err, "clCreateBuffer static_template");
@@ -195,7 +211,6 @@ int main(int argc, char **argv)
                                         sizeof(int), NULL, &err);
   check_opencl_error(err, "clCreateBuffer found_count");
   
-  // Host buffers
   u32_t *h_found_coins = (u32_t*)malloc(max_found * 14 * sizeof(u32_t));
   int h_found_count;
   unsigned long long batches_done = 0ULL;
@@ -204,7 +219,6 @@ int main(int argc, char **argv)
   unsigned long long coins_found = 0ULL;
   double total_elapsed_time = 0.0;
   
-  // Initialize time measurement
   time_measurement();
   
   fprintf(stderr, "Starting OpenCL search with %zu coins per batch, local work size %zu\n",
@@ -212,13 +226,12 @@ int main(int argc, char **argv)
   
   while((n_batches == 0ULL || batches_done < n_batches) && !stop_requested)
   {
-    // Reset found count
     h_found_count = 0;
     err = clEnqueueWriteBuffer(queue, d_found_count, CL_FALSE, 0, 
                                sizeof(int), &h_found_count, 0, NULL, NULL);
     check_opencl_error(err, "clEnqueueWriteBuffer found_count");
     
-    // Set kernel arguments
+    // Definir argumentos do kernel
     cl_ulong cl_base_nonce = (cl_ulong)base_nonce;
     cl_ulong cl_num_coins = (cl_ulong)coins_per_batch;
     
@@ -235,12 +248,10 @@ int main(int argc, char **argv)
     err = clSetKernelArg(kernel, 5, sizeof(int), &max_found);
     check_opencl_error(err, "clSetKernelArg 5");
     
-    // Launch kernel
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size, 
                                  &local_work_size, 0, NULL, NULL);
     check_opencl_error(err, "clEnqueueNDRangeKernel");
     
-    // Read back results
     err = clEnqueueReadBuffer(queue, d_found_count, CL_TRUE, 0, 
                               sizeof(int), &h_found_count, 0, NULL, NULL);
     check_opencl_error(err, "clEnqueueReadBuffer found_count");
@@ -255,13 +266,11 @@ int main(int argc, char **argv)
                                 h_found_coins, 0, NULL, NULL);
       check_opencl_error(err, "clEnqueueReadBuffer found_coins");
       
-      // Process found coins
       for(int i = 0; i < h_found_count; i++)
       {
         u32_t *coin = &h_found_coins[i * 14];
         u08_t *coin_bytes = (u08_t*)coin;
         
-        // Recompute hash to verify
         u32_t hash[5];
         sha1(coin, hash);
         
@@ -275,20 +284,18 @@ int main(int argc, char **argv)
         }
         printf("\"\n");
         
-        // Save coin
         save_coin(coin);
         coins_found++;
       }
       
-      save_coin(NULL); // Flush
+      save_coin(NULL);
     }
     
-    // Advance
     base_nonce += coins_per_batch;
     batches_done++;
     total_iterations += coins_per_batch;
 
-    if((total_iterations & 0xFFFFFFULL) == 0ULL)
+    if((total_iterations & 0xFFFFFFFFULL) == 0ULL)
     {
       time_measurement();
       double delta = wall_time_delta();
@@ -303,7 +310,6 @@ int main(int argc, char **argv)
     }
   }
   
-  // Cleanup
   save_coin(NULL);
   time_measurement();
   double final_time = wall_time_delta();

@@ -1,9 +1,3 @@
-//
-// Ultra-optimized OpenCL kernel for DETI coin search
-// Arquiteturas de Alto Desempenho 2025/2026
-//
-
-// SHA-1 inline computation - highly optimized
 #define ROTLEFT(a,b) rotate((a), (uint)(b))
 
 #define SHA1_ROUND1(a,b,c,d,e,w,k) \
@@ -32,7 +26,6 @@ inline void compute_sha1_optimized(uint *coin_words, uint *hash)
   
   uint w[16];
   
-  // Load input data - unrolled
   w[0] = coin_words[0];
   w[1] = coin_words[1];
   w[2] = coin_words[2];
@@ -50,7 +43,6 @@ inline void compute_sha1_optimized(uint *coin_words, uint *hash)
   w[14] = 0u;
   w[15] = 440u; // 55*8 bits
   
-  // Rounds 0-15 (first 16 use input directly)
   SHA1_ROUND1(a,b,c,d,e,w[0],0x5A827999u);
   SHA1_ROUND1(e,a,b,c,d,w[1],0x5A827999u);
   SHA1_ROUND1(d,e,a,b,c,w[2],0x5A827999u);
@@ -68,13 +60,11 @@ inline void compute_sha1_optimized(uint *coin_words, uint *hash)
   SHA1_ROUND1(b,c,d,e,a,w[14],0x5A827999u);
   SHA1_ROUND1(a,b,c,d,e,w[15],0x5A827999u);
   
-  // Rounds 16-19
   w[0] = ROTLEFT((w[13] ^ w[8] ^ w[2] ^ w[0]), 1); SHA1_ROUND1(e,a,b,c,d,w[0],0x5A827999u);
   w[1] = ROTLEFT((w[14] ^ w[9] ^ w[3] ^ w[1]), 1); SHA1_ROUND1(d,e,a,b,c,w[1],0x5A827999u);
   w[2] = ROTLEFT((w[15] ^ w[10] ^ w[4] ^ w[2]), 1); SHA1_ROUND1(c,d,e,a,b,w[2],0x5A827999u);
   w[3] = ROTLEFT((w[0] ^ w[11] ^ w[5] ^ w[3]), 1); SHA1_ROUND1(b,c,d,e,a,w[3],0x5A827999u);
   
-  // Rounds 20-39
   w[4] = ROTLEFT((w[1] ^ w[12] ^ w[6] ^ w[4]), 1); SHA1_ROUND2(a,b,c,d,e,w[4],0x6ED9EBA1u);
   w[5] = ROTLEFT((w[2] ^ w[13] ^ w[7] ^ w[5]), 1); SHA1_ROUND2(e,a,b,c,d,w[5],0x6ED9EBA1u);
   w[6] = ROTLEFT((w[3] ^ w[14] ^ w[8] ^ w[6]), 1); SHA1_ROUND2(d,e,a,b,c,w[6],0x6ED9EBA1u);
@@ -96,7 +86,6 @@ inline void compute_sha1_optimized(uint *coin_words, uint *hash)
   w[6] = ROTLEFT((w[3] ^ w[14] ^ w[8] ^ w[6]), 1); SHA1_ROUND2(c,d,e,a,b,w[6],0x6ED9EBA1u);
   w[7] = ROTLEFT((w[4] ^ w[15] ^ w[9] ^ w[7]), 1); SHA1_ROUND2(b,c,d,e,a,w[7],0x6ED9EBA1u);
   
-  // Rounds 40-59
   w[8] = ROTLEFT((w[5] ^ w[0] ^ w[10] ^ w[8]), 1); SHA1_ROUND3(a,b,c,d,e,w[8],0x8F1BBCDCu);
   w[9] = ROTLEFT((w[6] ^ w[1] ^ w[11] ^ w[9]), 1); SHA1_ROUND3(e,a,b,c,d,w[9],0x8F1BBCDCu);
   w[10] = ROTLEFT((w[7] ^ w[2] ^ w[12] ^ w[10]), 1); SHA1_ROUND3(d,e,a,b,c,w[10],0x8F1BBCDCu);
@@ -118,7 +107,6 @@ inline void compute_sha1_optimized(uint *coin_words, uint *hash)
   w[10] = ROTLEFT((w[7] ^ w[2] ^ w[12] ^ w[10]), 1); SHA1_ROUND3(c,d,e,a,b,w[10],0x8F1BBCDCu);
   w[11] = ROTLEFT((w[8] ^ w[3] ^ w[13] ^ w[11]), 1); SHA1_ROUND3(b,c,d,e,a,w[11],0x8F1BBCDCu);
   
-  // Rounds 60-79
   w[12] = ROTLEFT((w[9] ^ w[4] ^ w[14] ^ w[12]), 1); SHA1_ROUND4(a,b,c,d,e,w[12],0xCA62C1D6u);
   w[13] = ROTLEFT((w[10] ^ w[5] ^ w[15] ^ w[13]), 1); SHA1_ROUND4(e,a,b,c,d,w[13],0xCA62C1D6u);
   w[14] = ROTLEFT((w[11] ^ w[6] ^ w[0] ^ w[14]), 1); SHA1_ROUND4(d,e,a,b,c,w[14],0xCA62C1D6u);
@@ -140,7 +128,6 @@ inline void compute_sha1_optimized(uint *coin_words, uint *hash)
   w[14] = ROTLEFT((w[11] ^ w[6] ^ w[0] ^ w[14]), 1); SHA1_ROUND4(c,d,e,a,b,w[14],0xCA62C1D6u);
   w[15] = ROTLEFT((w[12] ^ w[7] ^ w[1] ^ w[15]), 1); SHA1_ROUND4(b,c,d,e,a,w[15],0xCA62C1D6u);
   
-  // Add to initial state
   hash[0] = a + 0x67452301u;
   hash[1] = b + 0xEFCDAB89u;
   hash[2] = c + 0x98BADCFEu;
@@ -161,11 +148,9 @@ __kernel void search_coins_kernel(
   
   ulong nonce = base_nonce + idx;
   
-  // Stack-allocated coin data
   uint coin_words[14];
   uchar *coin_bytes = (uchar *)coin_words;
 
-  // Copy static template - unrolled for speed
   coin_words[0] = static_words[0];
   coin_words[1] = static_words[1];
   coin_words[2] = static_words[2];
@@ -181,7 +166,6 @@ __kernel void search_coins_kernel(
   coin_words[12] = static_words[12];
   coin_words[13] = static_words[13];
   
-  // Fill nonce bytes using base-95 - optimized with local variable
   ulong temp_nonce = nonce;
   
   #pragma unroll
@@ -192,15 +176,12 @@ __kernel void search_coins_kernel(
     temp_nonce /= 95UL;
   }
   
-  // Compute SHA-1 hash
   uint hash[5];
   compute_sha1_optimized(coin_words, hash);
   
-  // Early exit if not a valid coin - this is the hot path
   if(hash[0] != 0xAAD20250u)
     return;
   
-  // Found a valid coin - store it atomically
   int pos = atomic_add(found_count, 1);
   if(pos < max_found)
   {
