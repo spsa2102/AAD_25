@@ -1,9 +1,3 @@
-//
-// DETI Coin Search Client (SIMD+OpenMP version)
-//
-// Connects to server, requests work, performs search, reports results
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,9 +41,7 @@ static void handle_sigint(int sig)
   g_stop_requested = 1;
 }
 
-//
-// Send a message
-//
+// Enviar mensagem
 static int send_message(int sock, message_type_t type, const void *payload, uint32_t payload_len)
 {
   message_header_t hdr;
@@ -70,9 +62,7 @@ static int send_message(int sock, message_type_t type, const void *payload, uint
   return 0;
 }
 
-//
-// Receive a message
-//
+// Receber mensagem
 static int recv_message(int sock, message_header_t *hdr, void *payload, uint32_t max_payload)
 {
   ssize_t n = recv(sock, hdr, sizeof(*hdr), MSG_WAITALL);
@@ -99,9 +89,7 @@ static int recv_message(int sock, message_header_t *hdr, void *payload, uint32_t
   return 0;
 }
 
-//
-// Process a work assignment
-//
+
 static void process_work(int sock, const work_assignment_t *work, int n_threads)
 {
   printf("Processing work %u: nonces %lu to %lu (%lu total)\n",
@@ -122,7 +110,6 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
     union { u08_t c[14 * 4]; u32_t i[14]; } data[N_LANES];
     u32_t interleaved_data[14][N_LANES] __attribute__((aligned(64)));
     u32_t interleaved_hash[5][N_LANES] __attribute__((aligned(64)));
-    // Per-thread LUT mapping to printable ASCII [32..126]
     u08_t ascii95_lut[256];
     for(int i = 0; i < 256; ++i) ascii95_lut[i] = (u08_t)((i % 95) + 32);
     
@@ -130,9 +117,8 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
     for(uint64_t batch = 0; batch < range / N_LANES; batch++)
     {
       if(g_stop_requested)
-        continue;  // Use continue instead of break in OpenMP for loop
+        continue;
       
-      // Prepare N_LANES messages
       for(int lane = 0; lane < N_LANES; lane++)
       {
         uint64_t nonce = work->start_nonce + batch * N_LANES + lane;
@@ -142,9 +128,6 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
         data[lane].c[54 ^ 3] = (u08_t)'\n';
         data[lane].c[55 ^ 3] = (u08_t)0x80;
         
-        // Fill variable bytes 12..53:
-        // - first 10 bytes from the nonce (base-95 printable ASCII)
-        // - remaining 32 bytes from a simple per-thread LCG mapped via LUT
         unsigned long long tnonce = nonce;
         for(int j = 0; j < 10; ++j)
         {
@@ -152,7 +135,7 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
           data[lane].c[(12 + j) ^ 3] = byte_val;
           tnonce /= 95ULL;
         }
-        // lightweight per-thread LCG seeded from nonce
+
         unsigned int x = (unsigned int)(nonce ^ (nonce >> 32));
         for(int j = 10; j < 42; ++j)
         {
@@ -161,12 +144,10 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
         }
       }
       
-      // Interleave data
       for(int idx = 0; idx < 14; idx++)
         for(int lane = 0; lane < N_LANES; lane++)
           interleaved_data[idx][lane] = data[lane].i[idx];
       
-      // Compute SIMD SHA1
 #if defined(USE_AVX2)
       sha1_avx2((v8si *)&interleaved_data[0], (v8si *)&interleaved_hash[0]);
 #elif defined(USE_AVX)
@@ -178,7 +159,6 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
         sha1(data[lane].i, &interleaved_hash[0][lane]);
 #endif
       
-      // Check for coins
       for(int lane = 0; lane < N_LANES; lane++)
       {
         if(interleaved_hash[0][lane] == 0xAAD20250u)
@@ -195,7 +175,6 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
           
           uint64_t found_nonce = work->start_nonce + batch * N_LANES + lane;
           
-          // Report to server
           #pragma omp critical
           {
             coin_report_t report;
@@ -219,7 +198,6 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
   double end_time = ts_end.tv_sec + ts_end.tv_nsec * 1e-9;
   double elapsed = end_time - start_time;
   
-  // Report completion
   work_completion_t completion;
   completion.work_id = work->work_id;
   completion.nonces_tested = range;
@@ -232,9 +210,6 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
          work->work_id, range / elapsed, coins_found);
 }
 
-//
-// Main client
-//
 int main(int argc, char **argv)
 {
   const char *server_host = "localhost";
@@ -258,7 +233,7 @@ int main(int argc, char **argv)
   signal(SIGINT, handle_sigint);
   signal(SIGPIPE, SIG_IGN);
   
-  // Connect to server
+  // Conectar ao servidor
   int sock = socket(AF_INET, SOCK_STREAM, 0);
   if(sock < 0)
   {
@@ -289,7 +264,7 @@ int main(int argc, char **argv)
   
   printf("Connected!\n\n");
   
-  // Send CLIENT_HELLO
+  // Enviar CLIENT_HELLO
   client_info_t client_info;
   memset(&client_info, 0, sizeof(client_info));
   gethostname(client_info.hostname, sizeof(client_info.hostname));
@@ -304,7 +279,7 @@ int main(int argc, char **argv)
     return 1;
   }
   
-  // Wait for SERVER_HELLO
+  // Esperar SERVER_HELLO
   message_header_t hdr;
   char buffer[4096];
   if(recv_message(sock, &hdr, buffer, sizeof(buffer)) < 0 || hdr.type != MSG_SERVER_HELLO)
@@ -316,17 +291,14 @@ int main(int argc, char **argv)
   
   printf("Handshake complete, requesting work...\n\n");
   
-  // Main work loop
   while(!g_stop_requested)
   {
-    // Request work
     if(send_message(sock, MSG_REQUEST_WORK, NULL, 0) < 0)
     {
       fprintf(stderr, "Failed to request work\n");
       break;
     }
     
-    // Receive work assignment or shutdown
     if(recv_message(sock, &hdr, buffer, sizeof(buffer)) < 0)
     {
       fprintf(stderr, "Connection lost\n");

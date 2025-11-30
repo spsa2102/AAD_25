@@ -1,10 +1,3 @@
-//
-// DETI Coin Search Server
-//
-// Coordinates multiple clients in distributed coin search
-// Assigns work ranges, collects results, maintains global state
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,11 +17,9 @@
 #include "aad_distributed.h"
 #include "aad_vault.h"
 
-//
-// Server state
-//
+// Configuração do servidor
 typedef struct {
-  uint64_t next_nonce;           // Next nonce to assign
+  uint64_t next_nonce;
   uint64_t total_nonces_assigned;
   uint64_t total_nonces_completed;
   uint32_t total_coins_found;
@@ -49,9 +40,7 @@ static void handle_sigint(int sig)
   g_state.running = 0;
 }
 
-//
-// Send a message
-//
+// Enviar uma mensagem
 static int send_message(int sock, message_type_t type, const void *payload, uint32_t payload_len)
 {
   message_header_t hdr;
@@ -60,11 +49,9 @@ static int send_message(int sock, message_type_t type, const void *payload, uint
   if(payload && payload_len > 0)
     hdr.checksum = simple_checksum(payload, payload_len);
   
-  // Send header
   if(send(sock, &hdr, sizeof(hdr), 0) != sizeof(hdr))
     return -1;
   
-  // Send payload if any
   if(payload && payload_len > 0)
   {
     if(send(sock, payload, payload_len, 0) != (ssize_t)payload_len)
@@ -74,17 +61,13 @@ static int send_message(int sock, message_type_t type, const void *payload, uint
   return 0;
 }
 
-//
-// Receive a message
-//
+// Receber uma mensagem
 static int recv_message(int sock, message_header_t *hdr, void *payload, uint32_t max_payload)
 {
-  // Receive header
   ssize_t n = recv(sock, hdr, sizeof(*hdr), MSG_WAITALL);
   if(n != sizeof(*hdr))
     return -1;
   
-  // Validate header
   if(hdr->magic != PROTOCOL_MAGIC)
   {
     fprintf(stderr, "Invalid magic: 0x%x\n", hdr->magic);
@@ -97,7 +80,6 @@ static int recv_message(int sock, message_header_t *hdr, void *payload, uint32_t
     return -1;
   }
   
-  // Receive payload if any
   if(hdr->length > 0)
   {
     if(hdr->length > max_payload)
@@ -110,7 +92,6 @@ static int recv_message(int sock, message_header_t *hdr, void *payload, uint32_t
     if(n != (ssize_t)hdr->length)
       return -1;
     
-    // Verify checksum
     uint32_t check = simple_checksum(payload, hdr->length);
     if(check != hdr->checksum)
     {
@@ -122,9 +103,6 @@ static int recv_message(int sock, message_header_t *hdr, void *payload, uint32_t
   return 0;
 }
 
-//
-// Handle a client connection
-//
 static void *client_handler(void *arg)
 {
   int client_sock = *(int *)arg;
@@ -143,7 +121,7 @@ static void *client_handler(void *arg)
   g_state.n_clients_connected++;
   pthread_mutex_unlock(&g_state.state_lock);
   
-  // Wait for CLIENT_HELLO
+  // Esperar CLIENT_HELLO
   message_header_t hdr;
   client_info_t client_info;
   
@@ -158,7 +136,7 @@ static void *client_handler(void *arg)
   printf("[%s] Client: %s, type: %s\n", client_addr, 
          client_info.hostname, client_info.client_type);
   
-  // Send SERVER_HELLO
+  // Enviar SERVER_HELLO
   if(send_message(client_sock, MSG_SERVER_HELLO, NULL, 0) < 0)
   {
     fprintf(stderr, "[%s] Failed to send SERVER_HELLO\n", client_addr);
@@ -166,7 +144,7 @@ static void *client_handler(void *arg)
     goto cleanup;
   }
   
-  // Main client loop
+  // Loop principal do cliente
   char buffer[8192];
   while(g_state.running)
   {
@@ -209,7 +187,6 @@ static void *client_handler(void *arg)
         printf("[%s] *** COIN FOUND *** work_id=%u nonce=%lu zeros=%u\n",
                client_addr, report->work_id, (unsigned long)report->nonce, report->zeros);
         
-        // Print coin details
         printf("    coin: \"");
         for(int b = 0; b < 55; b++)
         {
@@ -223,10 +200,9 @@ static void *client_handler(void *arg)
           printf("%02x", ((unsigned char *)report->hash)[h ^ 3]);
         printf("\n");
         
-        // Save coin
         pthread_mutex_lock(&g_state.state_lock);
         save_coin(report->coin_data);
-        save_coin(NULL); // flush
+        save_coin(NULL);
         g_state.total_coins_found++;
         pthread_mutex_unlock(&g_state.state_lock);
         
@@ -260,7 +236,6 @@ static void *client_handler(void *arg)
   }
   
 done:
-  // Send shutdown message
   send_message(client_sock, MSG_SHUTDOWN, NULL, 0);
   close(client_sock);
   
@@ -273,9 +248,6 @@ cleanup:
   return NULL;
 }
 
-//
-// Status reporting thread
-//
 static void *status_reporter(void *arg)
 {
   (void)arg;
@@ -298,9 +270,6 @@ static void *status_reporter(void *arg)
   return NULL;
 }
 
-//
-// Main server
-//
 int main(int argc, char **argv)
 {
   int port = DETI_DEFAULT_PORT;
@@ -317,7 +286,7 @@ int main(int argc, char **argv)
   printf("Starting nonce: %lu\n", (unsigned long)start_nonce);
   printf("\n");
   
-  // Initialize server state
+  // Inicializar estado do servidor
   memset(&g_state, 0, sizeof(g_state));
   g_state.next_nonce = start_nonce;
   g_state.running = 1;
@@ -326,7 +295,7 @@ int main(int argc, char **argv)
   signal(SIGINT, handle_sigint);
   signal(SIGPIPE, SIG_IGN);
   
-  // Create listening socket
+  // Criar socket
   int listen_sock = socket(AF_INET, SOCK_STREAM, 0);
   if(listen_sock < 0)
   {
@@ -334,11 +303,10 @@ int main(int argc, char **argv)
     return 1;
   }
   
-  // Set socket options
+  // Definir opções do socket
   int opt = 1;
   setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
   
-  // Bind
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
@@ -352,7 +320,6 @@ int main(int argc, char **argv)
     return 1;
   }
   
-  // Listen
   if(listen(listen_sock, 10) < 0)
   {
     perror("listen");
@@ -363,11 +330,9 @@ int main(int argc, char **argv)
   printf("Server listening on port %d\n", port);
   printf("Waiting for clients...\n\n");
   
-  // Start status reporter thread
   pthread_t status_thread;
   pthread_create(&status_thread, NULL, status_reporter, NULL);
   
-  // Accept clients
   while(g_state.running)
   {
     struct sockaddr_in client_addr;
@@ -382,7 +347,6 @@ int main(int argc, char **argv)
       break;
     }
     
-    // Create thread to handle client
     pthread_t thread;
     int *sock_ptr = malloc(sizeof(int));
     *sock_ptr = client_sock;
@@ -392,10 +356,9 @@ int main(int argc, char **argv)
   
   printf("\nShutdown requested, waiting for clients to disconnect...\n");
   
-  // Wait for clients to disconnect
   for(int i = 0; i < 50 && g_state.n_clients_connected > 0; i++)
   {
-    usleep(100000); // 100ms
+    usleep(100000);
   }
   
   close(listen_sock);
