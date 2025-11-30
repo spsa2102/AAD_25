@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <stdint.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -113,6 +114,15 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
     u08_t ascii95_lut[256];
     for(int i = 0; i < 256; ++i) ascii95_lut[i] = (u08_t)((i % 95) + 32);
     
+    // Generate random bytes for the entire space (bytes 12-53) once per thread
+    u08_t random_space[42];
+    unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)(uintptr_t)&data;
+    for(int i = 0; i < 42; ++i)
+    {
+      seed = 3134521u * seed + 1u;
+      random_space[i] = ascii95_lut[(u08_t)seed];
+    }
+    
     #pragma omp for schedule(dynamic, 1000)
     for(uint64_t batch = 0; batch < range / N_LANES; batch++)
     {
@@ -125,23 +135,26 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
         
         for(int k = 0; k < 12; k++)
           data[lane].c[k ^ 3] = (u08_t)hdr[k];
-        data[lane].c[54 ^ 3] = (u08_t)'\n';
-        data[lane].c[55 ^ 3] = (u08_t)0x80;
         
+      // Fill bytes 12-53 with random data
+      for(int j = 0; j < 42; ++j)
+          data[lane].c[(12 + j) ^ 3] = random_space[j];
+
+        // Overwrite nonce (bytes 44-53)
         unsigned long long tnonce = nonce;
         for(int j = 0; j < 10; ++j)
         {
           u08_t byte_val = (u08_t)(32 + (tnonce % 95ULL));
-          data[lane].c[(12 + j) ^ 3] = byte_val;
+          data[lane].c[(44 + j) ^ 3] = byte_val;
           tnonce /= 95ULL;
+
+          // FIX: If tnonce reaches 0, we have written the whole number.
+          // Stop here to preserve the random bytes in the remaining positions.
+          if (tnonce == 0) break; 
         }
 
-        unsigned int x = (unsigned int)(nonce ^ (nonce >> 32));
-        for(int j = 10; j < 42; ++j)
-        {
-          x = 3134521u * x + 1u;
-          data[lane].c[(12 + j) ^ 3] = ascii95_lut[(u08_t)x];
-        }
+        data[lane].c[54 ^ 3] = (u08_t)'\n';
+        data[lane].c[55 ^ 3] = (u08_t)0x80;
       }
       
       for(int idx = 0; idx < 14; idx++)
