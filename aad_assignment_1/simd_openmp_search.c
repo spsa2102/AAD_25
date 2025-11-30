@@ -31,7 +31,6 @@ static void handle_sigint(int sig)
 # define USE_SCALAR 1
 #endif
 
-// Batch multiple iterations before checking for coins
 #define BATCH_SIZE 256
 
 static inline void to_base95_10(unsigned long long value, u08_t digits[10])
@@ -86,7 +85,6 @@ int main(int argc, char **argv)
   const char *custom_string = NULL;
   int custom_string_len = 0;
 
-  // Parse arguments
   for(int i = 1; i < argc; ++i)
   {
     if(argv[i][0] == '-' && argv[i][1] == 's' && i + 1 < argc)
@@ -94,8 +92,8 @@ int main(int argc, char **argv)
       custom_string = argv[i + 1];
       custom_string_len = (int)strlen(custom_string);
       if(custom_string_len > 32)
-        custom_string_len = 32; // Cap at static_tail size
-      ++i; // Skip next arg
+        custom_string_len = 32;
+      ++i;
     }
     else if(argv[i][0] != '-')
     {
@@ -114,30 +112,26 @@ int main(int argc, char **argv)
   unsigned long long global_batches = 0ULL;
   unsigned long long coins_found = 0ULL;
 
-  // Parallel region
   #pragma omp parallel
   {
     const int tid = omp_get_thread_num();
     const int nth = omp_get_num_threads();
 
-    // Per-thread buffers - use separate arrays for better cache alignment
     u32_t interleaved_data[BATCH_SIZE][14][N_LANES] __attribute__((aligned(64)));
     u32_t interleaved_hash[BATCH_SIZE][5][N_LANES] __attribute__((aligned(64)));
 
-    // Per-thread LUT
     u08_t ascii95_lut[256];
     for(int i = 0; i < 256; ++i)
       ascii95_lut[i] = (u08_t)((i % 95) + 32);
 
-    // Pre-generate random printable tails
+    // gerar bytes estaticos
     u08_t static_tail[N_LANES][32];
     for(int lane = 0; lane < N_LANES; ++lane)
     {
-      // First fill with random bytes
       for(int j = 0; j < 32; ++j)
         static_tail[lane][j] = ascii95_lut[random_byte()];
       
-      // If custom string provided, overwrite the beginning
+      // se tiver string customizada, escrever em cima dos bytes estaticos
       if(custom_string != NULL)
       {
         for(int j = 0; j < custom_string_len; ++j)
@@ -145,12 +139,10 @@ int main(int argc, char **argv)
       }
     }
 
-    // Thread-specific base nonce with better distribution
     unsigned long long thread_seed = (unsigned long long)time(NULL) ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(tid + 1));
     unsigned long long base_nonce = ((thread_seed & 0xFFFFFFFFULL) << 32) | ((thread_seed >> 32) & 0xFFFFFFFFULL);
     base_nonce = base_nonce + (unsigned long long)tid * 0x100000000ULL; // Better thread separation
 
-    // Initialize static content once for all batch slots
     for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
     {
       for(int idx = 0; idx < 14; ++idx)
@@ -159,11 +151,11 @@ int main(int argc, char **argv)
 
       for(int lane = 0; lane < N_LANES; ++lane)
       {
-        // Write header at bytes 0-11
+        // Escrever cabecalho fixo
         for(int k = 0; k < 12; ++k)
           write_lane_byte(interleaved_data[batch_idx], lane, k, (u08_t)hdr[k]);
 
-        // Write static bytes and custom string at bytes 12-43
+        // Escrever bytes estaticos e string customizada nos bytes 12-43
         if(custom_string != NULL)
         {
           for(int j = 0; j < custom_string_len && j < 32; ++j)
@@ -177,13 +169,11 @@ int main(int argc, char **argv)
             write_lane_byte(interleaved_data[batch_idx], lane, 12 + j, static_tail[lane][j]);
         }
 
-        // Newline at 54, padding at 55
         write_lane_byte(interleaved_data[batch_idx], lane, 54, (u08_t)'\n');
         write_lane_byte(interleaved_data[batch_idx], lane, 55, (u08_t)0x80);
       }
     }
 
-    // Persistent per-lane nonce digits
     u08_t lane_digits[N_LANES][10];
     for(int lane = 0; lane < N_LANES; ++lane)
     {
@@ -195,24 +185,23 @@ int main(int argc, char **argv)
     unsigned long long batches_done = 0ULL;
     unsigned long long local_coins_found = 0ULL;
 
-    // Reduce reporting frequency
-    unsigned long long report_interval = 0x1FFFFFFULL; // ~32M iterations
+    unsigned long long report_interval = 0x1FFFFFFULL;
 
     while(!stop_requested && (n_batches == 0ULL || batches_done < n_batches))
     {
-      // Prepare batch of nonces
+      // Preparar as nonces para o batch inteiro
       for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
       {
         for(int lane = 0; lane < N_LANES; ++lane)
         {
-          // Write nonce at bytes 44-53
+            // Escrever nonce nos bytes 44-53
           for(int j = 0; j < 10; ++j)
             write_lane_byte(interleaved_data[batch_idx], lane, 44 + j, (u08_t)(lane_digits[lane][j] + 32u));
           base95_add(lane_digits[lane], stride);
         }
       }
 
-      // Compute SHA1 for entire batch
+      // Calcular SHA1 para o batch inteiro
       for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
       {
         #if defined(USE_AVX512)
@@ -234,22 +223,21 @@ int main(int argc, char **argv)
         #endif
       }
 
-      // Check results for entire batch
+      // Verificar resultados para o batch inteiro
       for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
       {
         for(int lane = 0; lane < N_LANES; ++lane)
         {
           u32_t h0 = interleaved_hash[batch_idx][0][lane];
-          if(__builtin_expect(h0 == 0xAAD20250u, 0)) // Unlikely hint
+          if(__builtin_expect(h0 == 0xAAD20250u, 0))
           {
             u32_t hash[5];
             for(int t = 0; t < 5; ++t)
               hash[t] = interleaved_hash[batch_idx][t][lane];
             
-            unsigned int zeros = __builtin_clz(hash[1]); // Fast leading zero count
+            unsigned int zeros = __builtin_clz(hash[1]);
             if((hash[1] & ((1u << (31u - zeros)) - 1u)) == 0u)
             {
-              // Check next words if needed
               for(unsigned int word = 2; word < 5 && zeros < 128u; ++word)
               {
                 if(hash[word] == 0u)
@@ -288,7 +276,6 @@ int main(int argc, char **argv)
       #pragma omp atomic
       global_batches += BATCH_SIZE;
 
-      // Less frequent progress reporting
       #pragma omp master
       {
         unsigned long long batches_snapshot;
