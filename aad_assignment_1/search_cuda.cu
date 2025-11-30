@@ -145,7 +145,7 @@ __global__ void search_coins_kernel(
 
 int main(int argc, char **argv)
 {
-  unsigned long long total_coins = 0ULL;
+  unsigned long long total_batches = 0ULL;
   char *static_string = NULL;
   
   for(int i = 1; i < argc; i++)
@@ -156,7 +156,7 @@ int main(int argc, char **argv)
     }
     else if(argv[i][0] != '-')
     {
-      total_coins = strtoull(argv[i], NULL, 10);
+      total_batches = strtoull(argv[i], NULL, 10);
     }
   }
   
@@ -223,7 +223,7 @@ int main(int argc, char **argv)
   printf("Threads per block: %d\n", threads_per_block);
   printf("Coins per batch: %llu\n", coins_per_batch);
   
-  while((total_coins == 0ULL || base_nonce < total_coins) && !stop_requested)
+  while((total_batches == 0ULL || batches_done < total_batches) && !stop_requested)
   {
     h_found_count = 0;
     cudaMemcpy(d_found_count, &h_found_count, sizeof(int), cudaMemcpyHostToDevice);

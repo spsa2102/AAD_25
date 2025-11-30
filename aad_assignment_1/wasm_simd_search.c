@@ -150,7 +150,6 @@ EXPORT void search_coins_simd(u32_t start_nonce,u32_t iterations,const char *pre
     }
     g_attempts_simd++;
   }
-  // C-side fallback: if at least one coin found but buffer empty, add one line
   if(g_coins_simd>0 && g_coins_buf_len_simd==0 && g_first_len_simd){
     g_coins_buf_simd[g_coins_buf_len_simd++]='V';
     g_coins_buf_simd[g_coins_buf_len_simd++]=(u08_t)('0'+(g_hex_chars_simd/10));
@@ -160,4 +159,3 @@ EXPORT void search_coins_simd(u32_t start_nonce,u32_t iterations,const char *pre
     g_coins_buf_simd[g_coins_buf_len_simd++]='\n';
   }
 }
-// Duplicate block removed.
