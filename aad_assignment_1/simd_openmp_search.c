@@ -83,8 +83,25 @@ static inline void gather_lane_words(u32_t dst[14], u32_t interleaved_data[14][N
 int main(int argc, char **argv)
 {
   unsigned long long n_batches = 0ULL;
-  if(argc > 1)
-    n_batches = strtoull(argv[1], NULL, 10);
+  const char *custom_string = NULL;
+  int custom_string_len = 0;
+
+  // Parse arguments
+  for(int i = 1; i < argc; ++i)
+  {
+    if(argv[i][0] == '-' && argv[i][1] == 's' && i + 1 < argc)
+    {
+      custom_string = argv[i + 1];
+      custom_string_len = (int)strlen(custom_string);
+      if(custom_string_len > 32)
+        custom_string_len = 32; // Cap at static_tail size
+      ++i; // Skip next arg
+    }
+    else if(argv[i][0] != '-')
+    {
+      n_batches = strtoull(argv[i], NULL, 10);
+    }
+  }
 
   (void)signal(SIGINT, handle_sigint);
 
@@ -115,8 +132,18 @@ int main(int argc, char **argv)
     // Pre-generate random printable tails
     u08_t static_tail[N_LANES][32];
     for(int lane = 0; lane < N_LANES; ++lane)
+    {
+      // First fill with random bytes
       for(int j = 0; j < 32; ++j)
         static_tail[lane][j] = ascii95_lut[random_byte()];
+      
+      // If custom string provided, overwrite the beginning
+      if(custom_string != NULL)
+      {
+        for(int j = 0; j < custom_string_len; ++j)
+          static_tail[lane][j] = (u08_t)custom_string[j];
+      }
+    }
 
     // Thread-specific base nonce with better distribution
     unsigned long long thread_seed = (unsigned long long)time(NULL) ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(tid + 1));
