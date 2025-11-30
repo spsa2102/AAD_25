@@ -1,45 +1,15 @@
 #!/bin/bash
 set -e
 
-SERVE=0; OPEN=0; PORT=8000; DO_BUILD=1
-ARGCOUNT=$#
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --serve) SERVE=1 ;;
-    --open) OPEN=1; SERVE=1 ;;
-    --port) shift; PORT=${1:-8000} ;;
-    --no-build) DO_BUILD=0 ;;
-    -h|--help)
-      echo "Usage: $0 [--serve] [--open] [--port N] [--no-build]"; exit 0 ;;
-    *) echo "Unknown arg: $1"; exit 1 ;;
-  esac; shift
-done
+ SERVE=1; OPEN=1; PORT=8000; DO_BUILD=1
 
-# Interactive menu if no flags passed and running in a TTY
-if [[ $ARGCOUNT -eq 0 && -t 0 ]]; then
-  echo "Select mode:"; echo "  1) Build"; echo "  2) Build + Serve"; echo "  3) Build + Serve + Open"; echo "  4) Serve existing (no build)"; echo "  5) Quit";
-  read -r -p "Choice [1-5]: " CHOICE
-  case "$CHOICE" in
-    1) ;; # defaults already
-    2) SERVE=1 ;;
-    3) SERVE=1; OPEN=1 ;;
-    4) DO_BUILD=0; SERVE=1 ;;
-    5) echo "Bye"; exit 0 ;;
-    *) echo "Invalid choice"; exit 1 ;;
-  esac
-  if [[ $SERVE -eq 1 ]]; then
-    read -r -p "Port [$PORT]: " PORT_IN
-    [[ -n $PORT_IN ]] && PORT=$PORT_IN
-  fi
-fi
-
-echo "DETI Coin WASM build (scalar + SIMD)"
-echo "Mode: DO_BUILD=$DO_BUILD SERVE=$SERVE OPEN=$OPEN PORT=$PORT"
+ echo "DETI Coin WASM build (scalar + SIMD)"
+ echo "Fixed mode: Build + Serve + Open (PORT=$PORT)"
+ echo "Mode: DO_BUILD=$DO_BUILD SERVE=$SERVE OPEN=$OPEN PORT=$PORT"
 
 if [[ $DO_BUILD -eq 1 ]]; then
   if ! command -v emcc &>/dev/null; then
     if [[ -f "$HOME/emsdk/emsdk_env.sh" ]]; then
-      # shellcheck disable=SC1090
       source "$HOME/emsdk/emsdk_env.sh"
     fi
   fi
@@ -49,12 +19,10 @@ if [[ $DO_BUILD -eq 1 ]]; then
   echo "emcc: $(emcc --version | head -n 1)"
 fi
 
-# Create output directory
 mkdir -p WebAssembly
 
 if [[ $DO_BUILD -eq 1 ]]; then
   mkdir -p WebAssembly
-  # Clean export lists (previous corruption removed)
   SCALAR_EXPORTS='["_search_coins","_set_difficulty","_get_attempts","_get_coins_found","_get_first_coin_nonce","_get_first_coin_ptr","_get_first_coin_length","_get_coins_buffer_ptr","_get_coins_buffer_length","_get_random_nonce","_malloc","_free"]'
   SIMD_EXPORTS='["_search_coins_simd","_set_difficulty_simd","_get_attempts_simd","_get_coins_found_simd","_get_first_coin_nonce_simd","_get_first_coin_ptr_simd","_get_first_coin_length_simd","_get_coins_buffer_ptr_simd","_get_coins_buffer_length_simd","_malloc","_free"]'
   emcc -O3 wasm_search.c -o WebAssembly/wasm_search_scalar.js \
@@ -65,6 +33,14 @@ if [[ $DO_BUILD -eq 1 ]]; then
     -s EXPORTED_FUNCTIONS="$SIMD_EXPORTS" \
     -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPU8"]' -s ALLOW_MEMORY_GROWTH=1 \
     -s MODULARIZE=1 -s EXPORT_NAME='WasmSearchSIMD'
+
+    for f in WebAssembly/wasm_search_scalar.js WebAssembly/wasm_search_simd.js; do
+      if command -v npx >/dev/null 2>&1; then
+        npx --yes prettier@latest --loglevel warn --write "$f" >/dev/null 2>&1 || true
+      elif python3 -m jsbeautifier --version >/dev/null 2>&1; then
+        python3 -m jsbeautifier -r "$f" >/dev/null 2>&1 || true
+      fi
+    done
 else
   echo "Skip build (--no-build)"
 fi
