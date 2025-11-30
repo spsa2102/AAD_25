@@ -16,7 +16,6 @@
 #include "aad_sha1_cpu.h"
 #include "aad_distributed.h"
 
-// SIMD configuration
 #if defined(__AVX2__)
 # define N_LANES 8
 # define USE_AVX2 1
@@ -90,8 +89,7 @@ static int recv_message(int sock, message_header_t *hdr, void *payload, uint32_t
   return 0;
 }
 
-
-static void process_work(int sock, const work_assignment_t *work, int n_threads)
+static void process_work(int sock, const work_assignment_t *work, int n_threads, const char *custom_string)
 {
   printf("Processing work %u: nonces %lu to %lu (%lu total)\n",
          work->work_id, (unsigned long)work->start_nonce, (unsigned long)work->end_nonce,
@@ -114,13 +112,19 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
     u08_t ascii95_lut[256];
     for(int i = 0; i < 256; ++i) ascii95_lut[i] = (u08_t)((i % 95) + 32);
     
-    // Generate random bytes for the entire space (bytes 12-53) once per thread
     u08_t random_space[42];
     unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)(uintptr_t)&data;
     for(int i = 0; i < 42; ++i)
     {
       seed = 3134521u * seed + 1u;
       random_space[i] = ascii95_lut[(u08_t)seed];
+    }
+
+    if (custom_string != NULL) {
+        size_t len = strlen(custom_string);
+
+        if (len > 42) len = 42; 
+        memcpy(random_space, custom_string, len);
     }
     
     #pragma omp for schedule(dynamic, 1000)
@@ -136,23 +140,18 @@ static void process_work(int sock, const work_assignment_t *work, int n_threads)
         for(int k = 0; k < 12; k++)
           data[lane].c[k ^ 3] = (u08_t)hdr[k];
         
-      // Fill bytes 12-53 with random data
-      for(int j = 0; j < 42; ++j)
+        for(int j = 0; j < 42; ++j)
           data[lane].c[(12 + j) ^ 3] = random_space[j];
-
-        // Overwrite nonce (bytes 44-53)
+        
         unsigned long long tnonce = nonce;
         for(int j = 0; j < 10; ++j)
         {
           u08_t byte_val = (u08_t)(32 + (tnonce % 95ULL));
           data[lane].c[(44 + j) ^ 3] = byte_val;
           tnonce /= 95ULL;
-
-          // FIX: If tnonce reaches 0, we have written the whole number.
-          // Stop here to preserve the random bytes in the remaining positions.
-          if (tnonce == 0) break; 
+          if (tnonce == 0) break;
         }
-
+        
         data[lane].c[54 ^ 3] = (u08_t)'\n';
         data[lane].c[55 ^ 3] = (u08_t)0x80;
       }
@@ -228,19 +227,32 @@ int main(int argc, char **argv)
   const char *server_host = "localhost";
   int server_port = DETI_DEFAULT_PORT;
   int n_threads = omp_get_max_threads();
-  
-  if(argc > 1)
-    server_host = argv[1];
-  if(argc > 2)
-    server_port = atoi(argv[2]);
-  if(argc > 3)
-    n_threads = atoi(argv[3]);
+  const char *custom_string = NULL;
+
+  int pos_arg_index = 0;
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-s") == 0) {
+      if (i + 1 < argc) {
+        custom_string = argv[i+1];
+        i++;
+      } else {
+        fprintf(stderr, "Error: -s requires a string argument\n");
+        return 1;
+      }
+    } else {
+      if (pos_arg_index == 0) server_host = argv[i];
+      else if (pos_arg_index == 1) server_port = atoi(argv[i]);
+      else if (pos_arg_index == 2) n_threads = atoi(argv[i]);
+      pos_arg_index++;
+    }
+  }
   
   printf("DETI Coin Search Client (%s)\n", CLIENT_TYPE);
   printf("==============================\n");
   printf("Server: %s:%d\n", server_host, server_port);
   printf("Threads: %d\n", n_threads);
   printf("SIMD lanes: %d\n", N_LANES);
+  if(custom_string) printf("Custom String: \"%s\"\n", custom_string);
   printf("\n");
   
   signal(SIGINT, handle_sigint);
@@ -331,7 +343,7 @@ int main(int argc, char **argv)
     }
     
     work_assignment_t *work = (work_assignment_t *)buffer;
-    process_work(sock, work, n_threads);
+    process_work(sock, work, n_threads, custom_string);
   }
   
   printf("\nDisconnecting...\n");
