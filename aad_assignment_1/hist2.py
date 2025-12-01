@@ -6,10 +6,6 @@ import numpy as np
 from matplotlib.ticker import MaxNLocator
 
 def get_coin_counts(source):
-    """
-    Parses coin counts from a file or a subprocess output.
-    Looks for lines formatted as: COINS_FOUND: <int>
-    """
     counts = []
     pattern = re.compile(r"COINS_FOUND:\s*(\d+)")
     
@@ -34,13 +30,9 @@ def get_coin_counts(source):
     return counts
 
 def run_cuda_executable(exec_path, args=[]):
-    """
-    Runs the CUDA executable and captures stdout.
-    """
     cmd = [exec_path] + args
     print(f"Running: {' '.join(cmd)}")
     try:
-        # Run process and capture output, ignoring encoding errors just in case
         result = subprocess.run(
             cmd, 
             stdout=subprocess.PIPE, 
@@ -63,26 +55,21 @@ def plot_histogram(counts, output_file="coins_found_histogram.png"):
 
     plt.figure(figsize=(10, 6))
     
-    # Calculate unique values to center bars on integers
     unique_counts = sorted(list(set(counts)))
     if not unique_counts:
         unique_counts = [0]
     
-    # Create bins centered on integers
     bins = np.arange(min(counts) - 0.5, max(counts) + 1.5, 1)
     
     plt.hist(counts, bins=bins, color='orange', edgecolor='black', alpha=0.7, rwidth=0.8)
     
-    # Formatting
     plt.title(f'Distribution of Coins Found per Kernel Run\n(Total Batches: {len(counts)})')
     plt.xlabel('Number of Coins Found')
     plt.ylabel('Frequency (Number of Batches)')
     
-    # Force x-axis to show only integers
     ax = plt.gca()
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     
-    # Add statistics
     total_coins = sum(counts)
     mean_coins = np.mean(counts)
     plt.text(0.95, 0.95, 
@@ -98,10 +85,9 @@ def plot_histogram(counts, output_file="coins_found_histogram.png"):
     plt.close()
 
 if __name__ == "__main__":
-    # CONFIGURATION
-    RUN_BINARY = False  # Set to True to run the executable directly
+    RUN_BINARY = False
     EXECUTABLE_PATH = "./search_cuda"
-    EXECUTABLE_ARGS = ["1000"] # Run for 1000 batches
+    EXECUTABLE_ARGS = ["1000"]
     LOG_FILE_PATH = "output.log"
 
     data = []
@@ -114,12 +100,8 @@ if __name__ == "__main__":
     else:
         print(f"No arguments provided. Attempting to read from {LOG_FILE_PATH}...")
         data = get_coin_counts(LOG_FILE_PATH)
-        
-        # DEMO DATA GENERATION (for when you run this script without real data)
         if not data:
             print("\n[Demo Mode] No data found. Generating dummy Poisson-like data...")
-            # Simulate low probability events (mostly 0s, some 1s, rare 2s)
-            # Assuming ~0.01 coins per batch average
             data = np.random.poisson(lam=0.01, size=5000).tolist()
 
     if data:
