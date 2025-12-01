@@ -1,11 +1,7 @@
-// 4-lane SIMD WebAssembly DETI Coin search (wasm SIMD 128-bit)
-// Build example:
-// emcc -O3 -msimd128 wasm_simd_search.c -o wasm_search_simd.js \
-//   -s EXPORTED_FUNCTIONS='["_search_coins_simd","_get_attempts_simd","_get_coins_found_simd","_get_first_coin_nonce_simd","_get_first_coin_ptr_simd","_get_first_coin_length_simd","_malloc","_free"]' \
-//   -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_NAME='WasmSearchSIMD'
-
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <wasm_simd128.h>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -14,7 +10,9 @@
 #define EXPORT
 #endif
 
-typedef uint8_t  u08_t; typedef uint32_t u32_t; typedef uint64_t u64_t;
+#include "aad_data_types.h"
+#include "aad_sha1_cpu.h"
+#include "aad_vault.h"
 #define DETI_COIN_SIGNATURE 0xAAD20250u
 
 #define VROTL(x,n) wasm_v128_or(wasm_i32x4_shl(x,(n)), wasm_u32x4_shr(x,32-(n)))
@@ -49,9 +47,9 @@ static void nonce_hex_lane(u32_t nonce,u08_t *coin){ static const char hx[]="012
 static void fill_space(u64_t *seed,u08_t *coin){ for(int i=12;i<40;i++){ *seed=*seed*6364136223846793005ULL+1442695040888963407ULL; u08_t ch=(u08_t)(32+(*seed % 95)); if(ch=='\n') ch='_'; coin[i^3]=ch; }}
 
 static u64_t g_attempts_simd=0; static u32_t g_coins_simd=0; static u32_t g_first_nonce_simd=0; static u08_t g_first_bytes_simd[55]; static u32_t g_first_len_simd=0;
-static u08_t g_coins_buf_simd[8192]; static u32_t g_coins_buf_len_simd=0; // buffer with lines Vdd:COINSTRING\n
-static u32_t g_mask_simd = 0xFFFFFFFFu; // adjustable difficulty mask
-static u32_t g_hex_chars_simd = 8;      // number of leading hex chars required (1..8)
+static u08_t g_coins_buf_simd[8192]; static u32_t g_coins_buf_len_simd=0;
+static u32_t g_mask_simd = 0xFFFFFFFFu;
+static u32_t g_hex_chars_simd = 8;     
 EXPORT u64_t get_attempts_simd(void){ return g_attempts_simd; }
 EXPORT u32_t get_coins_found_simd(void){ return g_coins_simd; }
 EXPORT u32_t get_first_coin_nonce_simd(void){ return g_first_nonce_simd; }
@@ -79,6 +77,7 @@ EXPORT void search_coins_simd(u32_t start_nonce,u32_t iterations,const char *pre
     if( (h0_0 & g_mask_simd) == (DETI_COIN_SIGNATURE & g_mask_simd) ){
       if(g_coins_simd==0){ g_first_nonce_simd=base; for(int b=0;b<55;b++) g_first_bytes_simd[b]=coins[0].c[b^3]; g_first_len_simd=55; }
       g_coins_simd++;
+      if(h0_0 == DETI_COIN_SIGNATURE){ save_coin(&coins[0].i[0]); }
       if(g_coins_buf_len_simd < sizeof(g_coins_buf_simd)-70){
         g_coins_buf_simd[g_coins_buf_len_simd++]='V';
         g_coins_buf_simd[g_coins_buf_len_simd++]=(u08_t)('0'+(diff_hex_chars/10));
@@ -88,9 +87,11 @@ EXPORT void search_coins_simd(u32_t start_nonce,u32_t iterations,const char *pre
         g_coins_buf_simd[g_coins_buf_len_simd++]='\n';
       }
     }
+    // Lane 1
     if( (h0_1 & g_mask_simd) == (DETI_COIN_SIGNATURE & g_mask_simd) ){
       if(g_coins_simd==0){ g_first_nonce_simd=base+1; for(int b=0;b<55;b++) g_first_bytes_simd[b]=coins[1].c[b^3]; g_first_len_simd=55; }
       g_coins_simd++;
+      if(h0_1 == DETI_COIN_SIGNATURE){ save_coin(&coins[1].i[0]); }
       if(g_coins_buf_len_simd < sizeof(g_coins_buf_simd)-70){
         g_coins_buf_simd[g_coins_buf_len_simd++]='V';
         g_coins_buf_simd[g_coins_buf_len_simd++]=(u08_t)('0'+(diff_hex_chars/10));
@@ -100,9 +101,11 @@ EXPORT void search_coins_simd(u32_t start_nonce,u32_t iterations,const char *pre
         g_coins_buf_simd[g_coins_buf_len_simd++]='\n';
       }
     }
+    // Lane 2
     if( (h0_2 & g_mask_simd) == (DETI_COIN_SIGNATURE & g_mask_simd) ){
       if(g_coins_simd==0){ g_first_nonce_simd=base+2; for(int b=0;b<55;b++) g_first_bytes_simd[b]=coins[2].c[b^3]; g_first_len_simd=55; }
       g_coins_simd++;
+      if(h0_2 == DETI_COIN_SIGNATURE){ save_coin(&coins[2].i[0]); }
       if(g_coins_buf_len_simd < sizeof(g_coins_buf_simd)-70){
         g_coins_buf_simd[g_coins_buf_len_simd++]='V';
         g_coins_buf_simd[g_coins_buf_len_simd++]=(u08_t)('0'+(diff_hex_chars/10));
@@ -112,9 +115,11 @@ EXPORT void search_coins_simd(u32_t start_nonce,u32_t iterations,const char *pre
         g_coins_buf_simd[g_coins_buf_len_simd++]='\n';
       }
     }
+    // Lane 3
     if( (h0_3 & g_mask_simd) == (DETI_COIN_SIGNATURE & g_mask_simd) ){
       if(g_coins_simd==0){ g_first_nonce_simd=base+3; for(int b=0;b<55;b++) g_first_bytes_simd[b]=coins[3].c[b^3]; g_first_len_simd=55; }
       g_coins_simd++;
+      if(h0_3 == DETI_COIN_SIGNATURE){ save_coin(&coins[3].i[0]); }
       if(g_coins_buf_len_simd < sizeof(g_coins_buf_simd)-70){
         g_coins_buf_simd[g_coins_buf_len_simd++]='V';
         g_coins_buf_simd[g_coins_buf_len_simd++]=(u08_t)('0'+(diff_hex_chars/10));
@@ -126,7 +131,7 @@ EXPORT void search_coins_simd(u32_t start_nonce,u32_t iterations,const char *pre
     }
     g_attempts_simd += 4;
   }
-  // remainder scalar fallback (reuse lane 0)
+  //scalar fallback (reuse lane 0)
   for(u32_t r=0; r<rem; r++){
     u32_t nonce=start_nonce+full*4+r; nonce_hex_lane(nonce, coins[0].c);
     u32_t a=0x67452301u,b=0xEFCDAB89u,c=0x98BADCFEu,d=0x10325476u,e=0xC3D2E1F0u,wbuf[16],tmp; for(int i=0;i<14;i++) wbuf[i]=coins[0].i[i]; wbuf[14]=0; wbuf[15]=440;
@@ -138,6 +143,7 @@ EXPORT void search_coins_simd(u32_t start_nonce,u32_t iterations,const char *pre
     u32_t h0=a+0x67452301u; if( (h0 & g_mask_simd) == (DETI_COIN_SIGNATURE & g_mask_simd) ){
       if(g_coins_simd==0){ g_first_nonce_simd=nonce; for(int b=0;b<55;b++) g_first_bytes_simd[b]=coins[0].c[b^3]; g_first_len_simd=55; }
       g_coins_simd++;
+      if(h0 == DETI_COIN_SIGNATURE){ save_coin(&coins[0].i[0]); }
       u32_t diff_hex_chars = g_hex_chars_simd;
       if(g_coins_buf_len_simd < sizeof(g_coins_buf_simd)-70){
         g_coins_buf_simd[g_coins_buf_len_simd++]='V';
@@ -158,4 +164,5 @@ EXPORT void search_coins_simd(u32_t start_nonce,u32_t iterations,const char *pre
     for(u32_t b=0;b<g_first_len_simd;b++){ u08_t ch=g_first_bytes_simd[b]; if(ch=='\n') break; g_coins_buf_simd[g_coins_buf_len_simd++]=ch; }
     g_coins_buf_simd[g_coins_buf_len_simd++]='\n';
   }
+  save_coin(NULL);
 }

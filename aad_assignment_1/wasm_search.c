@@ -1,11 +1,7 @@
-// Scalar WebAssembly DETI Coin search
-// Build example:
-// emcc -O3 wasm_search.c -o wasm_search_scalar.js \
-//   -s EXPORTED_FUNCTIONS='["_search_coins","_get_attempts","_get_coins_found","_get_first_coin_nonce","_get_first_coin_ptr","_get_first_coin_length","_malloc","_free"]' \
-//   -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_NAME='WasmSearchScalar'
-
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #define EXPORT EMSCRIPTEN_KEEPALIVE
@@ -13,9 +9,9 @@
 #define EXPORT
 #endif
 
-typedef uint8_t  u08_t;
-typedef uint32_t u32_t;
-typedef uint64_t u64_t;
+#include "aad_data_types.h"
+#include "aad_sha1_cpu.h"
+#include "aad_vault.h"
 
 #define DETI_COIN_SIGNATURE 0xAAD20250u
 
@@ -53,11 +49,10 @@ static void nonce_hex(u32_t nonce,u08_t *coin){
 }
 
 static u64_t g_attempts=0; static u32_t g_coins=0; static u32_t g_first_nonce=0; static u08_t g_first_bytes[55]; static u32_t g_first_len=0;
-// Buffer to store textual representations of multiple coins (first 128) for verification
-static u08_t g_coins_buf[8192]; // enough for ~128 lines of ~64 chars
+static u08_t g_coins_buf[8192]; 
 static u32_t g_coins_buf_len=0;
-static u32_t g_mask = 0xFFFFFFFFu; // difficulty mask (8 hex chars by default)
-static u32_t g_hex_chars = 8;      // number of leading hex chars required (1..8)
+static u32_t g_mask = 0xFFFFFFFFu;
+static u32_t g_hex_chars = 8;     
 
 EXPORT u64_t get_attempts(void){ return g_attempts; }
 EXPORT u32_t get_coins_found(void){ return g_coins; }
@@ -88,7 +83,9 @@ EXPORT void search_coins(u32_t start_nonce,u32_t iterations,const char *prefix){
     if( (hash[0] & g_mask) == (DETI_COIN_SIGNATURE & g_mask) ){
       if(g_coins==0){ g_first_nonce=nonce; for(int b=0;b<55;b++) g_first_bytes[b]=coin.c[b^3]; g_first_len=55; }
       g_coins++;
-      // Append textual line to buffer if space permits
+      if(hash[0] == DETI_COIN_SIGNATURE){
+        save_coin(&coin.i[0]);
+      }
       if(g_coins_buf_len < sizeof(g_coins_buf) - 70){
         g_coins_buf[g_coins_buf_len++]='V';
         g_coins_buf[g_coins_buf_len++]=(u08_t)('0'+(g_hex_chars/10));
@@ -100,7 +97,7 @@ EXPORT void search_coins(u32_t start_nonce,u32_t iterations,const char *prefix){
     }
     g_attempts++;
   }
-  // C-side fallback: if at least one coin found but buffer empty, add one line
+  save_coin(NULL);
   if(g_coins>0 && g_coins_buf_len==0 && g_first_len){
     g_coins_buf[g_coins_buf_len++]='V';
     g_coins_buf[g_coins_buf_len++]=(u08_t)('0'+(g_hex_chars/10));
@@ -111,9 +108,8 @@ EXPORT void search_coins(u32_t start_nonce,u32_t iterations,const char *prefix){
   }
 }
 
-// Simple pseudo-random nonce generator (xorshift-like LCG), exported for convenience.
 EXPORT u32_t get_random_nonce(void){
-  static u64_t x = 0x123456789ABCDEF0ull;
+  static uint64_t x = 0x123456789ABCDEF0ull;
   x = x * 6364136223846793005ULL + 1442695040888963407ULL;
   return (u32_t)(x >> 32);
 }

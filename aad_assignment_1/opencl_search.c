@@ -18,7 +18,6 @@ static void handle_sigint(int sig)
   stop_requested = 1;
 }
 
-// função para verificar erros OpenCL
 static void check_opencl_error(cl_int err, const char *operation)
 {
   if(err != CL_SUCCESS)
@@ -28,7 +27,6 @@ static void check_opencl_error(cl_int err, const char *operation)
   }
 }
 
-// Carregar código fonte do kernel OpenCL
 static char* load_kernel_source(const char *filename, size_t *size)
 {
   FILE *fp = fopen(filename, "r");
@@ -76,7 +74,6 @@ int main(int argc, char **argv)
   unsigned long long n_batches = 0ULL;
   const char *custom_string = NULL;
 
-  // Parse arguments
   for (int i = 1; i < argc; i++)
   {
     if (strcmp(argv[i], "-s") == 0)
@@ -93,14 +90,12 @@ int main(int argc, char **argv)
     }
     else
     {
-      // Assume it is n_batches
       n_batches = strtoull(argv[i], NULL, 10);
     }
   }
   
   (void)signal(SIGINT, handle_sigint);
   
-  // OpenCL setup
   cl_platform_id platform;
   cl_device_id device;
   cl_context context;
@@ -198,7 +193,6 @@ int main(int argc, char **argv)
 
   if (custom_string) fprintf(stderr, "Custom string set: \"%s\"\n", custom_string);
 
-  // Alocar buffers
   cl_mem d_static_template = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                             sizeof(h_static_template), h_static_template, &err);
   check_opencl_error(err, "clCreateBuffer static_template");
@@ -231,7 +225,6 @@ int main(int argc, char **argv)
                                sizeof(int), &h_found_count, 0, NULL, NULL);
     check_opencl_error(err, "clEnqueueWriteBuffer found_count");
     
-    // Definir argumentos do kernel
     cl_ulong cl_base_nonce = (cl_ulong)base_nonce;
     cl_ulong cl_num_coins = (cl_ulong)coins_per_batch;
     

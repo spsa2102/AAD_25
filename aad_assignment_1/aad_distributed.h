@@ -9,7 +9,6 @@
 #define DETI_PROTOCOL_VERSION 1
 #define WORK_RANGE_SIZE 100000000ULL
 
-// Tipos de mensagens
 typedef enum {
   MSG_CLIENT_HELLO = 1,
   MSG_SERVER_HELLO = 2,
@@ -23,7 +22,6 @@ typedef enum {
   MSG_PONG = 10
 } message_type_t;
 
-// Identificação do cliente
 typedef struct {
   char hostname[64];
   char client_type[32];
@@ -31,7 +29,6 @@ typedef struct {
   uint32_t version;
 } client_info_t;
 
-// Atribuição de trabalho do servidor para o cliente
 typedef struct {
   uint64_t start_nonce;
   uint64_t end_nonce;
@@ -39,7 +36,6 @@ typedef struct {
   uint32_t work_id;
 } work_assignment_t;
 
-// Relatório das moedas encontradas
 typedef struct {
   uint64_t nonce;
   uint32_t zeros;
@@ -48,7 +44,6 @@ typedef struct {
   u32_t hash[5];
 } coin_report_t;
 
-// Relatório de conclusão de trabalho
 typedef struct {
   uint32_t work_id;
   uint64_t nonces_tested;
@@ -56,7 +51,6 @@ typedef struct {
   double elapsed_time;
 } work_completion_t;
 
-// Cabeçalho da mensagem do protocolo
 typedef struct {
   uint32_t magic;
   uint16_t version;

@@ -97,7 +97,6 @@
 <script src="wasm_search_scalar.js"></script>
 <script src="wasm_search_simd.js"></script>
 <script>
-// Grab DOM references once
 let scalarMod, simdMod;
 const logEl      = document.getElementById('log');
 const itEl       = document.getElementById('iterations');
@@ -109,7 +108,6 @@ const scalarBtn  = document.getElementById('scalarBtn');
 const simdBtn    = document.getElementById('simdBtn');
 const compareBtn = document.getElementById('compareBtn');
 const untilBtn   = document.getElementById('untilCoinBtn');
-// Coins UI elements
 const coinsInfoEl = document.getElementById('coinsInfo');
 
 let coinsList = [];
@@ -117,9 +115,25 @@ let coinsList = [];
 function esc(s){ return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 function updateCoinsUI(){
     if(coinsList.length===0){ coinsInfoEl.textContent='No coins yet.'; return; }
-    // Show all, clamp height via CSS
     const text = coinsList.join('\n');
-    coinsInfoEl.innerHTML = `Total: ${coinsList.length}<br/><pre style="background:#fff;border:1px solid #ddd;padding:6px;overflow:auto;max-height:200px;">${esc(text)}</pre>`;
+    coinsInfoEl.innerHTML = `Total: ${coinsList.length} <button onclick="downloadCoinsVault()" style="margin-left:10px;padding:4px 8px;">Download Vault</button><br/><pre style="background:#fff;border:1px solid #ddd;padding:6px;overflow:auto;max-height:200px;">${esc(text)}</pre>`;
+}
+
+function downloadCoinsVault(){
+    if(coinsList.length === 0){
+        alert('No coins to download.');
+        return;
+    }
+    const content = coinsList.join('\n') + '\n';
+    const blob = new Blob([content], {type: 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '108583_113085_webassembly_vault.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 function addCoinLine(line){ 
     console.log(`[addCoinLine] called with: "${line}"`);
@@ -159,9 +173,6 @@ function extractBufferCoins(mod, ptrName, lenName){
     return lines;
 }
 
-// (Vault download/clear removed per user request)
-
-
 function setLog(text) {
     logEl.textContent = text;
 }
@@ -178,7 +189,6 @@ async function loadModules() {
     setLog('Loading modules...');
     scalarMod = await WasmSearchScalar();
     simdMod   = await WasmSearchSIMD();
-    // apply initial difficulty
     const d = +diffEl.value;
     scalarMod.ccall('set_difficulty', null, ['number'], [d]);
     simdMod.ccall('set_difficulty_simd', null, ['number'], [d]);
@@ -246,7 +256,6 @@ function runSIMD() {
     const bufCoins = extractBufferCoins(simdMod,'get_coins_buffer_ptr_simd','get_coins_buffer_length_simd');
     bufCoins.forEach(addCoinLine);
     if (coins > 0 && bufCoins.length === 0 && coinTxt) {
-        // Fallback: buffer empty but coin reported; synthesize a line
         const diffTag = String(diffEl.value).padStart(2,'0');
         const line = 'V' + diffTag + ':' + coinTxt.replace(/\n.*$/,'').trim();
         addCoinLine(line);
@@ -272,9 +281,8 @@ function untilCoin() {
     if (batch < 1000) batch = 1000;
     let total = 0, coins = 0;
     let nonce = Math.floor(Math.random() * 1e6);
-    // expected attempts ~ 16^d; choose cap = 10x expected to raise success chance
     const expected = Math.pow(16,d);
-    const cap = Math.min(expected * 10, 800000000); // safety upper bound
+    const cap = Math.min(expected * 10, 800000000); 
     const t0  = performance.now();
     while (coins === 0 && total < cap) {
         simdMod.ccall('search_coins_simd', null, ['number','number','string'], [nonce, batch, prefix]);
@@ -282,17 +290,15 @@ function untilCoin() {
         if (typeof raw === 'bigint') raw = Number(raw);
         const c  = simdMod.ccall('get_coins_found_simd','number',[],[]);
         total += perLane ? raw * 4 : raw;
-        coins = c; // use latest batch coin count (not cumulative, since each call resets)
+        coins = c;
         nonce += batch;
         console.log(`[untilCoin] batch complete: c=${c}, coins=${coins}, total_attempts=${total}`);
     }
-    // Extract buffer AFTER loop when coins found (buffer persists from last search call)
     console.log(`[untilCoin] Loop ended: coins=${coins}`);
     console.log(`[untilCoin] simdMod:`, simdMod);
     console.log(`[untilCoin] simdMod.HEAPU8:`, simdMod ? simdMod.HEAPU8 : 'simdMod is null/undefined');
     console.log(`[untilCoin] typeof simdMod.ccall:`, typeof simdMod?.ccall);
     if (coins > 0) {
-        // Direct manual extraction to debug
         try {
             const ptr = simdMod.ccall('get_coins_buffer_ptr_simd','number',[],[]);
             const len = simdMod.ccall('get_coins_buffer_length_simd','number',[],[]);
@@ -319,7 +325,6 @@ function untilCoin() {
         const coinTxt = readFirst(simdMod,'get_first_coin_ptr_simd','get_first_coin_length_simd');
         console.log(`[untilCoin] first coin text: "${coinTxt}"`);
         if (coinTxt) append('First coin:\n' + coinTxt);
-        // Fallback if no coin lines were added
         if (coinsList.length === 0 && coinTxt) {
             console.log('[untilCoin] FALLBACK: coinsList empty, synthesizing line');
             const diffTag = String(diffEl.value).padStart(2,'0');
@@ -332,7 +337,6 @@ function untilCoin() {
     }
 }
 
-// Wire up events
 loadBtn.onclick    = loadModules;
 scalarBtn.onclick  = () => { setLog('Scalar run'); runScalar(); };
 simdBtn.onclick    = () => { setLog('SIMD run'); runSIMD(); };

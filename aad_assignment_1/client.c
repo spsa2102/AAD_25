@@ -41,7 +41,6 @@ static void handle_sigint(int sig)
   g_stop_requested = 1;
 }
 
-// Enviar mensagem
 static int send_message(int sock, message_type_t type, const void *payload, uint32_t payload_len)
 {
   message_header_t hdr;
@@ -62,7 +61,6 @@ static int send_message(int sock, message_type_t type, const void *payload, uint
   return 0;
 }
 
-// Receber mensagem
 static int recv_message(int sock, message_header_t *hdr, void *payload, uint32_t max_payload)
 {
   ssize_t n = recv(sock, hdr, sizeof(*hdr), MSG_WAITALL);
@@ -289,7 +287,6 @@ int main(int argc, char **argv)
   
   printf("Connected!\n\n");
   
-  // Enviar CLIENT_HELLO
   client_info_t client_info;
   memset(&client_info, 0, sizeof(client_info));
   gethostname(client_info.hostname, sizeof(client_info.hostname));
@@ -304,7 +301,6 @@ int main(int argc, char **argv)
     return 1;
   }
   
-  // Esperar SERVER_HELLO
   message_header_t hdr;
   char buffer[4096];
   if(recv_message(sock, &hdr, buffer, sizeof(buffer)) < 0 || hdr.type != MSG_SERVER_HELLO)

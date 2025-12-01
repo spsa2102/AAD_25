@@ -111,10 +111,8 @@ __global__ void search_coins_kernel(
     for(int i = 0; i < 16; i++)
       coin_words[i] = c_static_words[i];
 
-    // Escreve os bytes do nonce
     write_nonce_bytes(coin_bytes, digits);
   
-    // Calcula o hash SHA-1 do coin
     u32_t hash[5];
 # define T            u32_t
 # define C(c)         (c)
@@ -128,7 +126,6 @@ __global__ void search_coins_kernel(
 # undef DATA
 # undef HASH
   
-    // Verifica se a DETI coin é valida
     if(hash[0] == 0xAAD20250u)
     {
       int pos = atomicAdd(found_count, 1);
@@ -175,12 +172,10 @@ int main(int argc, char **argv)
 
   srand((unsigned int)time(NULL));
   
-  // Inicializa nonce com um valor aleatorio
   base_nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
   
   time_measurement();
   
-  // Prepara template da coin
   u32_t h_coin_template[16];
   for(int i = 0; i < 16; i++)
     h_coin_template[i] = 0;
@@ -190,16 +185,13 @@ int main(int argc, char **argv)
   for(int k = 0; k < 12; k++)
     template_bytes[k ^ 3] = (u08_t)hdr[k];
 
-  // Gerar bytes aleatorios para o template
   for(int k = 12; k < 44; k++)
     template_bytes[k ^ 3] = (u08_t)(32 + (rand() % 95));
 
-  // Escrever string estática, se fornecida
   if(static_string != NULL)
   {
     int len = strlen(static_string);
     
-    // Sobrescrever posições 12-43 (antes do nonce)
     for(int k = 12; k < 44 && k - 12 < len; k++)
       template_bytes[k ^ 3] = (u08_t)static_string[k - 12];
   }
@@ -210,7 +202,6 @@ int main(int argc, char **argv)
 
   cudaMemcpyToSymbol(c_static_words, h_coin_template, sizeof(h_coin_template), 0, cudaMemcpyHostToDevice);
   
-  // Aloca memória no dispositivo
   u32_t *d_found_coins;
   int *d_found_count;
   cudaMalloc(&d_found_coins, max_found_per_batch * 16 * sizeof(u32_t));
@@ -237,7 +228,6 @@ int main(int argc, char **argv)
     search_coins_kernel<<<num_blocks, threads_per_block>>>(
       coins_per_batch, d_found_coins, d_found_count, max_found_per_batch);
     
-    // Espera pela conclusão
     cudaDeviceSynchronize();
     
     cudaError_t err = cudaGetLastError();
@@ -255,7 +245,6 @@ int main(int argc, char **argv)
       cudaMemcpy(h_found_coins, d_found_coins, 
                  coins_to_process * 16 * sizeof(u32_t), cudaMemcpyDeviceToHost);
       
-      // Processar moedas encontradas
       for(int i = 0; i < coins_to_process; i++)
       {
         printf("Found DETI coin! \n");

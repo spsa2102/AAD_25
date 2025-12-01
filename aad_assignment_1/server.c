@@ -17,7 +17,6 @@
 #include "aad_distributed.h"
 #include "aad_vault.h"
 
-// Configuração do servidor
 typedef struct {
   uint64_t next_nonce;
   uint64_t total_nonces_assigned;
@@ -40,7 +39,6 @@ static void handle_sigint(int sig)
   g_state.running = 0;
 }
 
-// Enviar uma mensagem
 static int send_message(int sock, message_type_t type, const void *payload, uint32_t payload_len)
 {
   message_header_t hdr;
@@ -61,7 +59,6 @@ static int send_message(int sock, message_type_t type, const void *payload, uint
   return 0;
 }
 
-// Receber uma mensagem
 static int recv_message(int sock, message_header_t *hdr, void *payload, uint32_t max_payload)
 {
   ssize_t n = recv(sock, hdr, sizeof(*hdr), MSG_WAITALL);
@@ -121,7 +118,6 @@ static void *client_handler(void *arg)
   g_state.n_clients_connected++;
   pthread_mutex_unlock(&g_state.state_lock);
   
-  // Esperar CLIENT_HELLO
   message_header_t hdr;
   client_info_t client_info;
   
@@ -136,7 +132,6 @@ static void *client_handler(void *arg)
   printf("[%s] Client: %s, type: %s\n", client_addr, 
          client_info.hostname, client_info.client_type);
   
-  // Enviar SERVER_HELLO
   if(send_message(client_sock, MSG_SERVER_HELLO, NULL, 0) < 0)
   {
     fprintf(stderr, "[%s] Failed to send SERVER_HELLO\n", client_addr);
@@ -144,7 +139,6 @@ static void *client_handler(void *arg)
     goto cleanup;
   }
   
-  // Loop principal do cliente
   char buffer[8192];
   while(g_state.running)
   {
@@ -286,7 +280,6 @@ int main(int argc, char **argv)
   printf("Starting nonce: %lu\n", (unsigned long)start_nonce);
   printf("\n");
   
-  // Inicializar estado do servidor
   memset(&g_state, 0, sizeof(g_state));
   g_state.next_nonce = start_nonce;
   g_state.running = 1;
@@ -295,7 +288,6 @@ int main(int argc, char **argv)
   signal(SIGINT, handle_sigint);
   signal(SIGPIPE, SIG_IGN);
   
-  // Criar socket
   int listen_sock = socket(AF_INET, SOCK_STREAM, 0);
   if(listen_sock < 0)
   {
@@ -303,7 +295,6 @@ int main(int argc, char **argv)
     return 1;
   }
   
-  // Definir opções do socket
   int opt = 1;
   setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
   

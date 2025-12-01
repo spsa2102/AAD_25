@@ -124,14 +124,12 @@ int main(int argc, char **argv)
     for(int i = 0; i < 256; ++i)
       ascii95_lut[i] = (u08_t)((i % 95) + 32);
 
-    // gerar bytes estaticos
     u08_t static_tail[N_LANES][32];
     for(int lane = 0; lane < N_LANES; ++lane)
     {
       for(int j = 0; j < 32; ++j)
         static_tail[lane][j] = ascii95_lut[random_byte()];
       
-      // se tiver string customizada, escrever em cima dos bytes estaticos
       if(custom_string != NULL)
       {
         for(int j = 0; j < custom_string_len; ++j)
@@ -141,7 +139,7 @@ int main(int argc, char **argv)
 
     unsigned long long thread_seed = (unsigned long long)time(NULL) ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(tid + 1));
     unsigned long long base_nonce = ((thread_seed & 0xFFFFFFFFULL) << 32) | ((thread_seed >> 32) & 0xFFFFFFFFULL);
-    base_nonce = base_nonce + (unsigned long long)tid * 0x100000000ULL; // Better thread separation
+    base_nonce = base_nonce + (unsigned long long)tid * 0x100000000ULL;
 
     for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
     {
@@ -151,11 +149,9 @@ int main(int argc, char **argv)
 
       for(int lane = 0; lane < N_LANES; ++lane)
       {
-        // Escrever cabecalho fixo
         for(int k = 0; k < 12; ++k)
           write_lane_byte(interleaved_data[batch_idx], lane, k, (u08_t)hdr[k]);
 
-        // Escrever bytes estaticos e string customizada nos bytes 12-43
         if(custom_string != NULL)
         {
           for(int j = 0; j < custom_string_len && j < 32; ++j)
@@ -189,19 +185,16 @@ int main(int argc, char **argv)
 
     while(!stop_requested && (n_batches == 0ULL || batches_done < n_batches))
     {
-      // Preparar as nonces para o batch inteiro
       for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
       {
         for(int lane = 0; lane < N_LANES; ++lane)
         {
-            // Escrever nonce nos bytes 44-53
           for(int j = 0; j < 10; ++j)
             write_lane_byte(interleaved_data[batch_idx], lane, 44 + j, (u08_t)(lane_digits[lane][j] + 32u));
           base95_add(lane_digits[lane], stride);
         }
       }
 
-      // Calcular SHA1 para o batch inteiro
       for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
       {
         #if defined(USE_AVX512)
@@ -223,7 +216,6 @@ int main(int argc, char **argv)
         #endif
       }
 
-      // Verificar resultados para o batch inteiro
       for(int batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx)
       {
         for(int lane = 0; lane < N_LANES; ++lane)

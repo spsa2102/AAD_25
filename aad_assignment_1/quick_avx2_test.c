@@ -4,7 +4,6 @@
 #include "aad_sha1_cpu.h"
 
 int main() {
-    // Test 1: With interleaving overhead (like benchmark_all.c)
     const int N_LANES = 8;
     union { u08_t c[14 * 4]; u32_t i[14]; } data[N_LANES];
     u32_t interleaved_data[14][N_LANES] __attribute__((aligned(64)));
@@ -25,14 +24,12 @@ int main() {
     time_t start = time(NULL);
     
     while(difftime(time(NULL), start) < 10) {
-        // Update nonces
         for(int lane = 0; lane < N_LANES; lane++) {
             unsigned long long nonce = base_nonce + lane;
             data[lane].c[12 ^ 3] = (u08_t)(32 + (nonce & 0x3F));
             data[lane].c[13 ^ 3] = (u08_t)(32 + ((nonce >> 6) & 0x3F));
         }
         
-        // Interleave - THIS IS THE OVERHEAD
         for(int idx = 0; idx < 14; idx++)
             for(int lane = 0; lane < N_LANES; lane++)
                 interleaved_data[idx][lane] = data[lane].i[idx];
@@ -43,7 +40,6 @@ int main() {
     }
     printf("AVX2 WITH interleaving: %.2e hashes/sec\n", (double)count / 10.0);
     
-    // Test 2: Without interleaving (direct)
     u32_t direct_data[14][8] __attribute__((aligned(64)));
     u32_t direct_hash[5][8] __attribute__((aligned(64)));
     for(int i = 0; i < 14; i++)

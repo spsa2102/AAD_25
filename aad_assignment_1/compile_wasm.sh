@@ -27,11 +27,11 @@ if [[ $DO_BUILD -eq 1 ]]; then
   SIMD_EXPORTS='["_search_coins_simd","_set_difficulty_simd","_get_attempts_simd","_get_coins_found_simd","_get_first_coin_nonce_simd","_get_first_coin_ptr_simd","_get_first_coin_length_simd","_get_coins_buffer_ptr_simd","_get_coins_buffer_length_simd","_malloc","_free"]'
   emcc -O3 wasm_search.c -o WebAssembly/wasm_search_scalar.js \
     -s EXPORTED_FUNCTIONS="$SCALAR_EXPORTS" \
-    -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPU8"]' -s ALLOW_MEMORY_GROWTH=1 \
+    -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPU8"]' -s ALLOW_MEMORY_GROWTH=1 -s FORCE_FILESYSTEM=1 \
     -s MODULARIZE=1 -s EXPORT_NAME='WasmSearchScalar'
   emcc -O3 -msimd128 wasm_simd_search.c -o WebAssembly/wasm_search_simd.js \
     -s EXPORTED_FUNCTIONS="$SIMD_EXPORTS" \
-    -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPU8"]' -s ALLOW_MEMORY_GROWTH=1 \
+    -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPU8"]' -s ALLOW_MEMORY_GROWTH=1 -s FORCE_FILESYSTEM=1 \
     -s MODULARIZE=1 -s EXPORT_NAME='WasmSearchSIMD'
 
     for f in WebAssembly/wasm_search_scalar.js WebAssembly/wasm_search_simd.js; do

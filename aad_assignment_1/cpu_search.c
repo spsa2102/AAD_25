@@ -20,8 +20,6 @@ static void handle_sigint(int sig)
 
 int main(int argc, char **argv)
 {
-  // O bloco SHA1 tem 64 bytes (16 palavras de 32 bits)
-  // A mensagem tem 55 bytes
   union { 
     u08_t c[64]; 
     u32_t i[16]; 
@@ -47,12 +45,10 @@ int main(int argc, char **argv)
   
   nonce = 0;
   
-  // Cabeçalho fixo da DETI coin
   const char *hdr = "DETI coin 2 ";
   for(int k = 0; k < 12; k++)
     coin.c[k ^ 3] = (u08_t)hdr[k];
 
-  // Espaço estático aleatório
   const int static_start = 12;
   const int static_end = 53;
   const int static_len = static_end - static_start + 1;
@@ -77,7 +73,6 @@ int main(int argc, char **argv)
     coin.c[pos ^ 3] = (u08_t)value;
   }
 
-  // Byte 54 e 55
   coin.c[54 ^ 3] = (u08_t)'\n';
   coin.c[55 ^ 3] = (u08_t)0x80;
   
@@ -111,7 +106,7 @@ int main(int argc, char **argv)
 
     sha1(&coin.i[0], hash);
 
-    // Verifica se começa com aad20250
+    //aad20250
     if(hash[0] == DETI_COIN_SIGNATURE)
     {
       printf("Found DETI coin: nonce=%llu\n", nonce);
@@ -144,7 +139,6 @@ int main(int argc, char **argv)
     }
   }
 
-  // Guardar moedas pendentes antes de sair
   save_coin(NULL);
 
   time_measurement();

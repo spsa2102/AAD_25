@@ -1,8 +1,3 @@
-//
-// Benchmark all implementations for 60 seconds each
-// FIXED v2: Eliminates interleaving overhead by working directly on interleaved data
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,9 +7,8 @@
 #include "aad_utilities.h"
 #include "aad_sha1_cpu.h"
 
-#define BENCHMARK_DURATION 60  // seconds
+#define BENCHMARK_DURATION 60
 
-// CPU search benchmark
 unsigned long long benchmark_cpu_search(int duration_seconds)
 {
     u32_t data[14];
@@ -23,7 +17,6 @@ unsigned long long benchmark_cpu_search(int duration_seconds)
     unsigned long long nonce = 0ULL;
     unsigned long long attempts = 0ULL;
     
-    // Initialize coin
     const char *hdr = "DETI coin 2 ";
     for(int k = 0; k < 12; k++)
         coin[k ^ 3] = (u08_t)hdr[k];
@@ -35,7 +28,6 @@ unsigned long long benchmark_cpu_search(int duration_seconds)
     time_t start_time = time(NULL);
     
     while(difftime(time(NULL), start_time) < duration_seconds) {
-        // Minimal nonce update
         coin[12 ^ 3] = (u08_t)(32 + (nonce & 0x3F));
         coin[13 ^ 3] = (u08_t)(32 + ((nonce >> 6) & 0x3F));
         
@@ -48,38 +40,31 @@ unsigned long long benchmark_cpu_search(int duration_seconds)
 }
 
 #if defined(__AVX__)
-// AVX search benchmark - works directly on interleaved data
 unsigned long long benchmark_avx_search(int duration_seconds)
 {
     const int N_LANES = 4;
-    // Data already in interleaved format: data[word_index][lane]
     u32_t data[14][N_LANES] __attribute__((aligned(32)));
     u32_t hash[5][N_LANES] __attribute__((aligned(32)));
     unsigned long long base_nonce = 0ULL;
     unsigned long long attempts = 0ULL;
     
-    // Initialize each word across all lanes
-    // Word 0-2: "DETI coin 2 " (12 bytes = 3 words)
     for(int lane = 0; lane < N_LANES; lane++) {
-        data[0][lane] = 0x44455449u; // "DETI" (big-endian in word)
-        data[1][lane] = 0x20636F69u; // " coi"
-        data[2][lane] = 0x6E203220u; // "n 2 "
+        data[0][lane] = 0x44455449u; 
+        data[1][lane] = 0x20636F69u; 
+        data[2][lane] = 0x6E203220u;
     }
-    // Words 3-12: variable data
     for(int w = 3; w < 13; w++)
         for(int lane = 0; lane < N_LANES; lane++)
-            data[w][lane] = 0x41414141u + lane + w; // "AAAA" + variation
-    // Word 13: last byte + newline + padding
+            data[w][lane] = 0x41414141u + lane + w; 
     for(int lane = 0; lane < N_LANES; lane++)
-        data[13][lane] = 0x41410A80u; // "AA\n" + 0x80 padding
+        data[13][lane] = 0x41410A80u;
     
     time_t start_time = time(NULL);
     
     while(difftime(time(NULL), start_time) < duration_seconds) {
-        // Update nonce in word 3 (bytes 12-15) - different per lane
         for(int lane = 0; lane < N_LANES; lane++) {
             unsigned long long nonce = base_nonce + lane;
-            data[3][lane] = (u32_t)nonce | 0x20202020u; // keep printable
+            data[3][lane] = (u32_t)nonce | 0x20202020u; 
         }
         
         sha1_avx((v4si *)data, (v4si *)hash);
@@ -93,7 +78,6 @@ unsigned long long benchmark_avx_search(int duration_seconds)
 #endif
 
 #if defined(__AVX2__)
-// AVX2 search benchmark - works directly on interleaved data
 unsigned long long benchmark_avx2_search(int duration_seconds)
 {
     const int N_LANES = 8;
@@ -102,25 +86,20 @@ unsigned long long benchmark_avx2_search(int duration_seconds)
     unsigned long long base_nonce = 0ULL;
     unsigned long long attempts = 0ULL;
     
-    // Initialize all lanes with valid coin structure
-    // Word 0-2: "DETI coin 2 " header
     for(int lane = 0; lane < N_LANES; lane++) {
-        data[0][lane] = 0x44455449u; // "DETI"
-        data[1][lane] = 0x20636F69u; // " coi"
-        data[2][lane] = 0x6E203220u; // "n 2 "
+        data[0][lane] = 0x44455449u;
+        data[1][lane] = 0x20636F69u;
+        data[2][lane] = 0x6E203220u;
     }
-    // Words 3-12: variable data
     for(int w = 3; w < 13; w++)
         for(int lane = 0; lane < N_LANES; lane++)
             data[w][lane] = 0x41414141u + lane + w;
-    // Word 13: last byte + newline + padding
     for(int lane = 0; lane < N_LANES; lane++)
         data[13][lane] = 0x41410A80u;
     
     time_t start_time = time(NULL);
     
     while(difftime(time(NULL), start_time) < duration_seconds) {
-        // Update nonce in word 3 - different per lane
         for(int lane = 0; lane < N_LANES; lane++) {
             unsigned long long nonce = base_nonce + lane;
             data[3][lane] = (u32_t)nonce | 0x20202020u;
@@ -137,7 +116,6 @@ unsigned long long benchmark_avx2_search(int duration_seconds)
 #endif
 
 #if defined(__AVX512F__)
-// AVX-512F search benchmark
 unsigned long long benchmark_avx512f_search(int duration_seconds)
 {
     const int N_LANES = 16;
@@ -219,7 +197,6 @@ int main(int argc, char **argv)
     FILE *fp = fopen("benchmark_results.csv", "w");
     fprintf(fp, "Implementation,Attempts,Attempts/Second,Attempts/Minute\n");
     
-    // CPU baseline
     printf("Benchmarking CPU search (no SIMD)...\n");
     unsigned long long cpu_attempts = benchmark_cpu_search(BENCHMARK_DURATION);
     double cpu_per_sec = (double)cpu_attempts / BENCHMARK_DURATION;
