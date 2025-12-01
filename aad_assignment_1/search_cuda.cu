@@ -171,6 +171,10 @@ int main(int argc, char **argv)
   unsigned long long coins_found = 0ULL;
 
   srand((unsigned int)time(NULL));
+
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
   
   base_nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
   
@@ -225,8 +229,15 @@ int main(int argc, char **argv)
     
     unsigned long long threads_needed = (coins_per_batch + NONCES_PER_THREAD - 1ULL) / (unsigned long long)NONCES_PER_THREAD;
     int num_blocks = (int)((threads_needed + threads_per_block - 1ULL) / threads_per_block);
+    
+    cudaEventRecord(start);
     search_coins_kernel<<<num_blocks, threads_per_block>>>(
       coins_per_batch, d_found_coins, d_found_count, max_found_per_batch);
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
     
     cudaDeviceSynchronize();
     
@@ -272,7 +283,9 @@ int main(int argc, char **argv)
               base_nonce);
     }
   }
-  
+
+  cudaEventDestroy(start);
+  cudaEventDestroy(stop);
   cudaFree(d_found_coins);
   cudaFree(d_found_count);
   free(h_found_coins);
