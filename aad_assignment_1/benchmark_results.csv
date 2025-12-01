@@ -1,4 +1,0 @@
-Implementation,Attempts,Attempts/Second,Attempts/Minute
-CPU_Baseline,16825572312,2.80e+08,1.68e+10
-AVX,65971595304,1.10e+09,6.60e+10
-AVX2,111599840704,1.86e+09,1.12e+11
