@@ -27,7 +27,7 @@
 
 static void sha1_55(const u32_t *data,u32_t *hash){
   u32_t a=0x67452301u,b=0xEFCDAB89u,c=0x98BADCFEu,d=0x10325476u,e=0xC3D2E1F0u,w[16],tmp; int t;
-  for(t=0;t<14;t++) w[t]=data[t]; w[14]=0; w[15]=440; // length = 55*8
+  for(t=0;t<14;t++) w[t]=data[t]; w[14]=0; w[15]=440; //55*8
   for(t=0;t<80;t++){
     if(t>=16){ tmp=w[(t-3)&15]^w[(t-8)&15]^w[(t-14)&15]^w[(t-16)&15]; w[t&15]=ROTL(tmp,1); }
     if(t<20)      tmp=ROTL(a,5)+F1(b,c,d)+e+w[t&15]+K1;

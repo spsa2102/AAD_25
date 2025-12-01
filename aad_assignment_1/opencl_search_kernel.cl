@@ -41,7 +41,7 @@ inline void compute_sha1_optimized(uint *coin_words, uint *hash)
   w[12] = coin_words[12];
   w[13] = coin_words[13];
   w[14] = 0u;
-  w[15] = 440u; // 55*8 bits
+  w[15] = 440u; // 55*8
   
   SHA1_ROUND1(a,b,c,d,e,w[0],0x5A827999u);
   SHA1_ROUND1(e,a,b,c,d,w[1],0x5A827999u);
@@ -187,7 +187,6 @@ __kernel void search_coins_kernel(
   {
     __global uint *dest = &found_coins[pos * 14];
     
-    // Unrolled copy for speed
     dest[0] = coin_words[0];
     dest[1] = coin_words[1];
     dest[2] = coin_words[2];

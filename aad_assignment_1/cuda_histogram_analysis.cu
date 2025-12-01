@@ -1,8 +1,3 @@
-//
-// CUDA Histogram Analysis
-// Measures: kernel execution time distribution and coins found per run
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,11 +12,10 @@ extern "C" void save_coin_wrapper(u32_t *coin);
 extern "C" void save_coin_flush(void);
 
 #define NUM_HISTOGRAM_RUNS 1000
-#define COINS_PER_BATCH 1048576  // 1M coins per kernel run
+#define COINS_PER_BATCH 1048576  // 1M/run
 #define MAX_COINS_PER_RUN 256
 #define THREADS_PER_BLOCK 256
 
-// CUDA kernel for DETI coin search with embedded name
 __global__ void search_coins_histogram_kernel(
     unsigned long long base_nonce,
     unsigned long long num_coins,
@@ -37,13 +31,11 @@ __global__ void search_coins_histogram_kernel(
     u32_t coin_words[14];
     u08_t *coin_bytes = (u08_t *)coin_words;
     
-    // Fixed header with embedded name: "DETI coin 2 luisbfsousa"
     const char *hdr = "DETI coin 2 luisbfsousa";
     int hdr_len = 23;
     for(int k = 0; k < hdr_len && k < 12; k++)
         coin_bytes[k ^ 3] = (u08_t)hdr[k];
     
-    // Fill remaining variable bytes (12..53) using nonce
     unsigned long long temp_nonce = nonce;
     for(int j = hdr_len; j < 42; j++) {
         u08_t byte_val = (u08_t)(32 + (temp_nonce % 95));
@@ -54,7 +46,6 @@ __global__ void search_coins_histogram_kernel(
     coin_bytes[54 ^ 3] = (u08_t)'\n';
     coin_bytes[55 ^ 3] = (u08_t)0x80;
     
-    // Compute SHA1
     u32_t hash[5];
 # define T            u32_t
 # define C(c)         (c)
@@ -68,7 +59,6 @@ __global__ void search_coins_histogram_kernel(
 # undef DATA
 # undef HASH
     
-    // Check if valid DETI coin
     if(hash[0] == 0xAAD20250u) {
         int pos = atomicAdd(found_count, 1);
         if(pos < max_found) {
@@ -88,7 +78,6 @@ typedef struct {
 
 void compute_statistics(histogram_data_t *hist)
 {
-    // Time statistics
     hist->min_time = hist->kernel_times[0];
     hist->max_time = hist->kernel_times[0];
     double sum_time = 0.0;
@@ -110,7 +99,6 @@ void compute_statistics(histogram_data_t *hist)
     }
     hist->stddev_time = (float)sqrt(variance / hist->num_runs);
     
-    // Coins statistics
     hist->min_coins = hist->coins_found[0];
     hist->max_coins = hist->coins_found[0];
     int sum_coins = 0;
@@ -145,17 +133,14 @@ int main(int argc, char **argv)
     
     histogram_data_t hist = {0};
     
-    // Allocate device memory
     u32_t *d_found_coins;
     int *d_found_count;
     cudaMalloc(&d_found_coins, MAX_COINS_PER_RUN * 14 * sizeof(u32_t));
     cudaMalloc(&d_found_count, sizeof(int));
     
-    // Host memory
     u32_t *h_found_coins = (u32_t*)malloc(MAX_COINS_PER_RUN * 14 * sizeof(u32_t));
     int h_found_count = 0;
     
-    // Create CUDA events for timing
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -165,11 +150,9 @@ int main(int argc, char **argv)
     base_nonce = ((unsigned long long)rand() << 32) | (unsigned long long)rand();
     
     for(int run = 0; run < NUM_HISTOGRAM_RUNS; run++) {
-        // Reset found counter
         h_found_count = 0;
         cudaMemcpy(d_found_count, &h_found_count, sizeof(int), cudaMemcpyHostToDevice);
         
-        // Measure kernel time
         cudaEventRecord(start);
         search_coins_histogram_kernel<<<num_blocks, THREADS_PER_BLOCK>>>(
             base_nonce, COINS_PER_BATCH, d_found_coins, d_found_count, MAX_COINS_PER_RUN);
@@ -180,7 +163,6 @@ int main(int argc, char **argv)
         cudaEventElapsedTime(&ms, start, stop);
         hist.kernel_times[run] = ms;
         
-        // Copy results back
         cudaMemcpy(&h_found_count, d_found_count, sizeof(int), cudaMemcpyDeviceToHost);
         
         if(h_found_count > 0) {
@@ -189,7 +171,6 @@ int main(int argc, char **argv)
             
             for(int i = 0; i < h_found_count; i++) {
                 printf("Found coin #%d (run %d): ", hist.coins_found[run] + i + 1, run);
-                // Print first 30 bytes
                 for(int j = 0; j < 30 && j < 55; j++) {
                     unsigned char ch = ((unsigned char *)&h_found_coins[i * 14])[j ^ 3];
                     if(ch >= 32 && ch <= 126) putchar(ch);
@@ -210,10 +191,8 @@ int main(int argc, char **argv)
     
     save_coin_flush();
     
-    // Compute statistics
     compute_statistics(&hist);
     
-    // Write results
     write_histogram_to_file("cuda_histogram.csv", &hist);
     
     printf("\n=== Statistics ===\n");
@@ -230,7 +209,6 @@ int main(int argc, char **argv)
            (int)(hist.num_runs * hist.mean_coins) : 0);
     printf("\nData saved to cuda_histogram.csv\n");
     
-    // Cleanup
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
     cudaFree(d_found_coins);

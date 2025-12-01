@@ -256,7 +256,6 @@ int main(int argc, char **argv)
   signal(SIGINT, handle_sigint);
   signal(SIGPIPE, SIG_IGN);
   
-  // Conectar ao servidor
   int sock = socket(AF_INET, SOCK_STREAM, 0);
   if(sock < 0)
   {

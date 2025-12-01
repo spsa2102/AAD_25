@@ -84,7 +84,6 @@ static void nonce_to_base95_host(unsigned long long value, u08_t digits[10])
   }
 }
 
-// Kernel para procurar DETI coins
 __global__ void search_coins_kernel(
   unsigned long long num_coins,
   u32_t *found_coins,
